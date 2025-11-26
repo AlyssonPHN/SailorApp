@@ -9,11 +9,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.sin
 
 @Composable
@@ -118,6 +121,60 @@ fun SailorScreen() {
                 pathFront.close()
                 
                 drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
+
+                // --- Navio ---
+                val shipX = width / 2
+                // Usando a onda da frente para posicionar o navio
+                val waveXFactor = (shipX / width) * 2.5 * PI + phase.toDouble()
+                // Subtraindo um valor para elevar o navio acima da linha d'água
+                val shipY = midLineY + (waveAmplitude.toPx() * sin(waveXFactor)).toFloat() - 15.dp.toPx()
+
+                // Calculando a inclinação (derivada aproximada) para o balanço
+                val delta = 5f
+                val waveNextXFactor = ((shipX + delta) / width) * 2.5 * PI + phase.toDouble()
+                val wavePrevXFactor = ((shipX - delta) / width) * 2.5 * PI + phase.toDouble()
+                
+                val yNext = midLineY + (waveAmplitude.toPx() * sin(waveNextXFactor)).toFloat()
+                val yPrev = midLineY + (waveAmplitude.toPx() * sin(wavePrevXFactor)).toFloat()
+                
+                val angle = atan2((yNext - yPrev).toDouble(), (2 * delta).toDouble()) * (180 / PI)
+
+                withTransform({
+                    translate(left = shipX, top = shipY)
+                    rotate(degrees = angle.toFloat(), pivot = Offset.Zero)
+                    scale(scaleX = 4.5f, scaleY = 4.5f, pivot = Offset.Zero)
+                }) {
+                    // Casco do navio (meia lua)
+                    val hullPath = Path()
+                    hullPath.moveTo(-25f, -10f)
+                    hullPath.cubicTo(-25f, 25f, 25f, 25f, 25f, -10f)
+                    hullPath.close()
+                    drawPath(hullPath, color = Color(0xFF8D6E63)) // Marrom
+
+                    // Mastro
+                    drawLine(
+                        color = Color(0xFF3E2723),
+                        start = Offset(0f, -10f),
+                        end = Offset(0f, -50f),
+                        strokeWidth = 3.dp.toPx()
+                    )
+
+                    // Vela
+                    val sailPath = Path()
+                    sailPath.moveTo(2f, -50f)
+                    sailPath.lineTo(30f, -30f)
+                    sailPath.lineTo(2f, -20f)
+                    sailPath.close()
+                    drawPath(sailPath, color = Color.White)
+                    
+                    // Bandeira
+                    val flagPath = Path()
+                    flagPath.moveTo(0f, -50f)
+                    flagPath.lineTo(-15f, -45f)
+                    flagPath.lineTo(0f, -40f)
+                    flagPath.close()
+                    drawPath(flagPath, color = Color.Red)
+                }
             }
         }
     }
