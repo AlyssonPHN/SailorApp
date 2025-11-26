@@ -128,36 +128,30 @@ fun SailorScreen() {
                     rotate(degrees = angle.toFloat(), pivot = Offset.Zero)
                     scale(scaleX = 4.5f, scaleY = 4.5f, pivot = Offset.Zero)
                 }) {
-                    // Casco do navio (meia lua)
+                     // Casco do navio de papel (Branco)
                     val hullPath = Path()
-                    hullPath.moveTo(-25f, -10f)
-                    hullPath.cubicTo(-25f, 25f, 25f, 25f, 25f, -10f)
+                    hullPath.moveTo(-40f, -10f) // Ponta esquerda
+                    hullPath.lineTo(40f, -10f)  // Ponta direita
+                    hullPath.lineTo(20f, 15f)   // Base direita
+                    hullPath.lineTo(-20f, 15f)  // Base esquerda
                     hullPath.close()
-                    drawPath(hullPath, color = Color(0xFF8D6E63)) // Marrom
+                    drawPath(hullPath, color = Color.White)
 
-                    // Mastro
-                    drawLine(
-                        color = Color(0xFF3E2723),
-                        start = Offset(0f, -10f),
-                        end = Offset(0f, -50f),
-                        strokeWidth = 3.dp.toPx()
-                    )
-
-                    // Vela
+                    // Vela Principal (Azul)
                     val sailPath = Path()
-                    sailPath.moveTo(2f, -50f)
-                    sailPath.lineTo(30f, -30f)
-                    sailPath.lineTo(2f, -20f)
+                    sailPath.moveTo(0f, -10f) 
+                    sailPath.lineTo(0f, -55f) // Topo
+                    sailPath.lineTo(30f, -10f)
                     sailPath.close()
-                    drawPath(sailPath, color = Color.White)
-                    
-                    // Bandeira
-                    val flagPath = Path()
-                    flagPath.moveTo(0f, -50f)
-                    flagPath.lineTo(-15f, -45f)
-                    flagPath.lineTo(0f, -40f)
-                    flagPath.close()
-                    drawPath(flagPath, color = Color.Red)
+                    drawPath(sailPath, color = Color(0xFF1E88E5))
+
+                    // Dobra menor da vela (Azul mais claro para profundidade)
+                    val foldPath = Path()
+                    foldPath.moveTo(0f, -10f)
+                    foldPath.lineTo(0f, -40f)
+                    foldPath.lineTo(-20f, -10f)
+                    foldPath.close()
+                    drawPath(foldPath, color = Color(0xFF90CAF9))
                 }
 
                 // Onda da frente (Branco Puro / Azul Oceano)
