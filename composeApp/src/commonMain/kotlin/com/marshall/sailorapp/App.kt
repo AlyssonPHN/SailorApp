@@ -105,24 +105,8 @@ fun SailorScreen() {
                 
                 drawPath(pathBack, color = Color(0xFF4FC3F7)) // Azul claro
 
-                // Onda da frente (Branco Puro)
-                val pathFront = Path()
-                pathFront.moveTo(0f, height)
-                pathFront.lineTo(0f, midLineY)
-                
-                for (x in 0..width.toInt() step 10) {
-                    val xPos = x.toFloat()
-                    val sine = sin((xPos / width) * 2.5 * PI + phase.toDouble()).toFloat()
-                    val yPos = midLineY + (waveAmplitude.toPx() * sine)
-                    pathFront.lineTo(xPos, yPos)
-                }
-                pathFront.lineTo(width, midLineY)
-                pathFront.lineTo(width, height)
-                pathFront.close()
-                
-                drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
-
                 // --- Navio ---
+                // Desenhamos o navio ANTES da onda da frente para que o casco pareça submerso (atrás da onda da frente)
                 val shipX = width / 2
                 // Usando a onda da frente para posicionar o navio
                 val waveXFactor = (shipX / width) * 2.5 * PI + phase.toDouble()
@@ -175,6 +159,23 @@ fun SailorScreen() {
                     flagPath.close()
                     drawPath(flagPath, color = Color.Red)
                 }
+
+                // Onda da frente (Branco Puro / Azul Oceano)
+                val pathFront = Path()
+                pathFront.moveTo(0f, height)
+                pathFront.lineTo(0f, midLineY)
+                
+                for (x in 0..width.toInt() step 10) {
+                    val xPos = x.toFloat()
+                    val sine = sin((xPos / width) * 2.5 * PI + phase.toDouble()).toFloat()
+                    val yPos = midLineY + (waveAmplitude.toPx() * sine)
+                    pathFront.lineTo(xPos, yPos)
+                }
+                pathFront.lineTo(width, midLineY)
+                pathFront.lineTo(width, height)
+                pathFront.close()
+                
+                drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
             }
         }
     }
