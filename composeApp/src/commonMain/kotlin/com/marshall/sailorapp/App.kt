@@ -100,7 +100,7 @@ fun SailorScreen() {
                 pathBack.lineTo(width, height)
                 pathBack.close()
                 
-                drawPath(pathBack, color = Color(0xFFE0E0E0)) // Branco levemente cinza
+                drawPath(pathBack, color = Color(0xFF4FC3F7)) // Azul claro
 
                 // Onda da frente (Branco Puro)
                 val pathFront = Path()
@@ -117,7 +117,7 @@ fun SailorScreen() {
                 pathFront.lineTo(width, height)
                 pathFront.close()
                 
-                drawPath(pathFront, color = Color.White)
+                drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
             }
         }
     }
