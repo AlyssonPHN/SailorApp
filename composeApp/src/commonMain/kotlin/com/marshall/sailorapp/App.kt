@@ -1,6 +1,7 @@
 package com.marshall.sailorapp
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +24,32 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.abs
+import kotlin.math.roundToInt // Import added for roundToInt
+
+// Imports for the new feature
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Grain // Represents rain
+import androidx.compose.material.icons.filled.Brightness2 // Represents sunset
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.graphics.RenderEffect // Added for BlurEffect
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.platform.LocalDensity // Import LocalDensity
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.TileMode
 
 @Composable
 @Preview
@@ -177,7 +204,7 @@ fun SailorScreen() {
 
                         // Vela Principal (Azul Escuro)
                         val sailPath = Path()
-                        sailPath.moveTo(0f, -10f) 
+                        sailPath.moveTo(0f, -10f)
                         sailPath.lineTo(0f, -55f) // Topo
                         sailPath.lineTo(30f, -10f)
                         sailPath.close()
@@ -189,7 +216,7 @@ fun SailorScreen() {
                         foldPath.lineTo(0f, -40f)
                         foldPath.lineTo(-20f, -10f)
                         foldPath.close()
-                        drawPath(foldPath, color = Color(0xFF90CAF9)) 
+                        drawPath(foldPath, color = Color(0xFF90CAF9))
                     }
 
                     // Onda da frente (Branco Puro / Azul Oceano)
@@ -209,6 +236,124 @@ fun SailorScreen() {
                     pathFront.close()
                     
                     drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
+                }
+            }
+        }
+
+        // --- Novo Menu Interativo ---
+        var isMenuExpanded by remember { mutableStateOf(false) }
+
+        val menuTransition = updateTransition(targetState = isMenuExpanded, label = "menuTransition")
+
+        val menuOffset by menuTransition.animateValue(
+            typeConverter = DpOffset.VectorConverter,
+            transitionSpec = { spring(stiffness = Spring.StiffnessMediumLow) }, label = "menuOffset"
+        ) { expanded ->
+            if (expanded) DpOffset(0.dp, 0.dp) else DpOffset(0.dp, (-50).dp) // Adjusted to start higher
+        }
+
+        val menuAlpha by menuTransition.animateFloat(
+            transitionSpec = { tween(durationMillis = 300) }, label = "menuAlpha"
+        ) { expanded ->
+            if (expanded) 1f else 0f
+        }
+
+        val iconRotation by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(4000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            )
+        )
+
+        // Orb Radius
+        val orbRadius = 18.dp
+        val iconSize = 24.dp
+        val centerCircleSize = 48.dp
+
+        val density = LocalDensity.current
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 80.dp, end = 48.dp) // Adjusted padding here
+                .zIndex(1f) // Ensure the menu is above other elements
+        ) {
+            // Central clickable circle
+            Box(
+                modifier = Modifier
+                    .size(centerCircleSize)
+                    .clip(CircleShape)
+                    .background(Color.Transparent) // Changed background to Transparent
+                    .clickable { isMenuExpanded = !isMenuExpanded }
+                    .align(Alignment.Center)
+            )
+
+            // Orbiting Icons
+            val icons = listOf(Icons.Default.Cloud, Icons.Default.WbSunny, Icons.Default.Grain, Icons.Default.Brightness2)
+            icons.forEachIndexed { index, icon ->
+                val angle = (iconRotation + index * (360f / icons.size)) * PI.toFloat() / 180f
+                val offsetX = with(density) { (orbRadius.toPx() * cos(angle)).toDp() }
+                val offsetY = with(density) { (orbRadius.toPx() * sin(angle)).toDp() }
+
+                if (!isMenuExpanded) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(iconSize)
+                            .offset(x = offsetX, y = offsetY)
+                            .align(Alignment.Center)
+                    )
+                }
+            }
+
+            // Expanded Glassmorphic Card
+            if (isMenuExpanded) {
+                Card(
+                    modifier = Modifier
+                        .wrapContentSize(Alignment.CenterEnd) // Changed fillMaxWidth to wrapContentSize
+                        // .blur(16.dp) // <<< REMOVED THIS LINE
+                        .offset { // Apply animated offset here
+                            with(density) {
+                                IntOffset(x = menuOffset.x.toPx().roundToInt(), y = menuOffset.y.toPx().roundToInt())
+                            }
+                        }
+                        // efeito glassmorphic multiplataforma
+                        .graphicsLayer {
+                            alpha = menuAlpha // Use animated alpha here
+                            shape = RoundedCornerShape(16.dp)
+                            clip = true
+                        },
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                    
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .wrapContentWidth(Alignment.CenterHorizontally), // Aligned column content to center
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        icons.forEach { icon ->
+                            IconButton(
+                                onClick = { isMenuExpanded = false }, // TODO: Handle button click for ${icon.name}
+                                modifier = Modifier // Removed fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(imageVector = icon, contentDescription = null, tint = Color.White)
+                                    Spacer(Modifier.width(8.dp))
+                                    // You can add Text here to describe the button
+                                    // Text(text = icon.name.substringAfterLast("."), color = Color.White)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
