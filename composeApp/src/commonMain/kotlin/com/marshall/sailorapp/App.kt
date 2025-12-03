@@ -25,6 +25,7 @@ import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.abs
 import kotlin.math.roundToInt // Import added for roundToInt
+import kotlin.random.Random // Import for Random
 
 // Imports for the new feature
 import androidx.compose.material.icons.Icons
@@ -59,6 +60,15 @@ fun App() {
     }
 }
 
+data class Cloud(
+    var x: Float,
+    var y: Float,
+    val size: Float,
+    val speed: Float,
+    val alpha: Float,
+    val color: Color // Add color property
+)
+
 @Composable
 fun SailorScreen() {
     Box(
@@ -68,6 +78,8 @@ fun SailorScreen() {
     ) {
         var isExpanded by remember { mutableStateOf(true) }
         var hasAppeared by remember { mutableStateOf(false) }
+        var showClouds by remember { mutableStateOf(false) } // New state for clouds
+        var screenWidthPx by remember { mutableStateOf(0f) } // Declaring screenWidthPx here
 
         // Animação de entrada
         LaunchedEffect(Unit) {
@@ -104,6 +116,12 @@ fun SailorScreen() {
             modifier = Modifier.fillMaxSize()
         ) {
             val screenHeight = maxHeight
+            // Assign screenWidthPx inside BoxWithConstraints
+            val currentScreenWidth = maxWidth
+            val localDensity = LocalDensity.current
+            LaunchedEffect(currentScreenWidth) {
+                screenWidthPx = with(localDensity) { currentScreenWidth.toPx() }
+            }
 
             val rotationAbs = abs(rotation)
             val heightOffset = if (rotationAbs > 60f) {
@@ -339,7 +357,12 @@ fun SailorScreen() {
                     ) {
                         icons.forEach { icon ->
                             IconButton(
-                                onClick = { isMenuExpanded = false }, // TODO: Handle button click for ${icon.name}
+                                onClick = {
+                                    isMenuExpanded = false
+                                    if (icon == Icons.Default.Cloud) {
+                                        showClouds = !showClouds // Toggle clouds when cloud icon is clicked
+                                    }
+                                },
                                 modifier = Modifier // Removed fillMaxWidth()
                             ) {
                                 Row(
@@ -355,6 +378,165 @@ fun SailorScreen() {
                         }
                     }
                 }
+            }
+        }
+
+        // Infinite Clouds
+        if (showClouds) {
+            InfiniteClouds(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.TopStart),
+                screenWidth = screenWidthPx
+            )
+        }
+    }
+}
+
+@Composable
+fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
+    val clouds = remember { mutableStateListOf<Cloud>() }
+    val density = LocalDensity.current.density
+
+    LaunchedEffect(Unit) {
+        var lastFrameTime = 0L
+        while (true) {
+            withFrameNanos { frameTime ->
+                val deltaTimeNs = if (lastFrameTime > 0) frameTime - lastFrameTime else 0L
+                lastFrameTime = frameTime
+                val deltaTimeSeconds = deltaTimeNs / 1_000_000_000f
+
+                // Update existing clouds
+                for (i in clouds.indices.reversed()) {
+                    val cloud = clouds[i]
+                    cloud.x += cloud.speed * deltaTimeSeconds * density // Adjust speed by density
+                    if (cloud.x > screenWidth + cloud.size * 2) { // Remove if off-screen to the right
+                        clouds.removeAt(i)
+                    }
+                }
+
+                // Add new clouds periodically
+                if (Random.nextFloat() < 0.02f) { // Probability of adding a new cloud each frame
+                    val size = Random.nextFloat() * 40f + 30f // Cloud size between 30dp and 70dp
+                    val speed = Random.nextFloat() * 50f + 20f // Cloud speed between 20dp/s and 70dp/s
+                    val y = Random.nextFloat() * (300f) // Y position between 0dp and 300dp from top
+                    val alpha = Random.nextFloat() * 0.4f + 0.3f // Alpha between 0.3 and 0.7
+                    val color = Color.White.copy(alpha = alpha) // White clouds with varying alpha
+
+                    clouds.add(Cloud(x = -size * 2, y = y, size = size, speed = speed, alpha = alpha, color = color))
+                }
+            }
+        }
+    }
+
+    Canvas(modifier = modifier) {
+        clouds.forEach { cloud ->
+            val cloudSizePx = cloud.size * density
+            val iconGridSize = 24f // Material icons are typically based on a 24x24 grid
+            val scaleFactor = cloudSizePx / iconGridSize
+
+            // currentX and currentY will track the local coordinates *within the Path*
+            var currentLocalX = 0f
+            var currentLocalY = 0f
+
+            val cloudPath = Path().apply {
+                // Initial moveTo
+                val startLocalX = 19.35f * scaleFactor
+                val startLocalY = 10.04f * scaleFactor
+                moveTo(startLocalX, startLocalY)
+                currentLocalX = startLocalX
+                currentLocalY = startLocalY
+
+                // curveTo(18.67f, 6.59f, 15.64f, 4.0f, 12.0f, 4.0f)
+                val c1x_abs1 = 18.67f * scaleFactor
+                val c1y_abs1 = 6.59f * scaleFactor
+                val c2x_abs1 = 15.64f * scaleFactor
+                val c2y_abs1 = 4.0f * scaleFactor
+                val endLocalX1 = 12.0f * scaleFactor
+                val endLocalY1 = 4.0f * scaleFactor
+                cubicTo(c1x_abs1, c1y_abs1, c2x_abs1, c2y_abs1, endLocalX1, endLocalY1)
+                currentLocalX = endLocalX1
+                currentLocalY = endLocalY1
+
+                // curveTo(9.11f, 4.0f, 6.6f, 5.64f, 5.35f, 8.04f)
+                val c1x_abs2 = 9.11f * scaleFactor
+                val c1y_abs2 = 4.0f * scaleFactor
+                val c2x_abs2 = 6.6f * scaleFactor
+                val c2y_abs2 = 5.64f * scaleFactor
+                val endLocalX2 = 5.35f * scaleFactor
+                val endLocalY2 = 8.04f * scaleFactor
+                cubicTo(c1x_abs2, c1y_abs2, c2x_abs2, c2y_abs2, endLocalX2, endLocalY2)
+                currentLocalX = endLocalX2
+                currentLocalY = endLocalY2
+
+                // curveTo(2.34f, 8.36f, 0.0f, 10.91f, 0.0f, 14.0f)
+                val c1x_abs3 = 2.34f * scaleFactor
+                val c1y_abs3 = 8.36f * scaleFactor
+                val c2x_abs3 = 0.0f * scaleFactor
+                val c2y_abs3 = 10.91f * scaleFactor
+                val endLocalX3 = 0.0f * scaleFactor
+                val endLocalY3 = 14.0f * scaleFactor
+                cubicTo(c1x_abs3, c1y_abs3, c2x_abs3, c2y_abs3, endLocalX3, endLocalY3)
+                currentLocalX = endLocalX3
+                currentLocalY = endLocalY3
+
+                // curveToRelative(0.0f, 3.31f, 2.69f, 6.0f, 6.0f, 6.0f)
+                val dc1x_rel1 = 0.0f * scaleFactor
+                val dc1y_rel1 = 3.31f * scaleFactor
+                val dc2x_rel1 = 2.69f * scaleFactor
+                val dc2y_rel1 = 6.0f * scaleFactor
+                val dex_rel1 = 6.0f * scaleFactor
+                val dey_rel1 = 6.0f * scaleFactor
+                cubicTo(
+                    currentLocalX + dc1x_rel1, currentLocalY + dc1y_rel1,
+                    currentLocalX + dc2x_rel1, currentLocalY + dc2y_rel1,
+                    currentLocalX + dex_rel1, currentLocalY + dey_rel1
+                )
+                currentLocalX += dex_rel1
+                currentLocalY += dey_rel1
+
+                // horizontalLineToRelative(13.0f)
+                val dhx_rel = 13.0f * scaleFactor
+                lineTo(currentLocalX + dhx_rel, currentLocalY)
+                currentLocalX += dhx_rel
+
+                // curveToRelative(2.76f, 0.0f, 5.0f, -2.24f, 5.0f, -5.0f)
+                val dc1x_rel2 = 2.76f * scaleFactor
+                val dc1y_rel2 = 0.0f * scaleFactor
+                val dc2x_rel2 = 5.0f * scaleFactor
+                val dc2y_rel2 = -2.24f * scaleFactor
+                val dex_rel2 = 5.0f * scaleFactor
+                val dey_rel2 = -5.0f * scaleFactor
+                cubicTo(
+                    currentLocalX + dc1x_rel2, currentLocalY + dc1y_rel2,
+                    currentLocalX + dc2x_rel2, currentLocalY + dc2y_rel2,
+                    currentLocalX + dex_rel2, currentLocalY + dey_rel2
+                )
+                currentLocalX += dex_rel2
+                currentLocalY += dey_rel2
+
+                // curveToRelative(0.0f, -2.64f, -2.05f, -4.78f, -4.65f, -4.96f)
+                val dc1x_rel3 = 0.0f * scaleFactor
+                val dc1y_rel3 = -2.64f * scaleFactor
+                val dc2x_rel3 = -2.05f * scaleFactor
+                val dc2y_rel3 = -4.78f * scaleFactor
+                val dex_rel3 = -4.65f * scaleFactor
+                val dey_rel3 = -4.96f * scaleFactor
+                cubicTo(
+                    currentLocalX + dc1x_rel3, currentLocalY + dc1y_rel3,
+                    currentLocalX + dc2x_rel3, currentLocalY + dc2y_rel3,
+                    currentLocalX + dex_rel3, currentLocalY + dey_rel3
+                )
+                // currentLocalX e currentLocalY não precisam ser atualizados aqui, close() lida com isso ao fechar o caminho para o ponto de início.
+
+                close()
+            }
+
+            // Apply translation when drawing the path
+            withTransform({
+                translate(left = cloud.x * density, top = cloud.y * density)
+            }) {
+                drawPath(cloudPath, color = cloud.color, alpha = cloud.alpha)
             }
         }
     }
