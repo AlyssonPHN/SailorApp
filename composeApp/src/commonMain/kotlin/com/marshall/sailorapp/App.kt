@@ -47,6 +47,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.graphics.RenderEffect // Added for BlurEffect
 import androidx.compose.animation.core.spring
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.platform.LocalDensity // Import LocalDensity
 import androidx.compose.ui.graphics.Shader
@@ -73,6 +75,15 @@ data class Cloud(
     val color: Color // Add color property
 )
 
+// New data class for RainDrop
+data class RainDrop(
+    var x: Float,
+    var y: Float,
+    val length: Float,
+    val speed: Float,
+    val alpha: Float
+)
+
 @Composable
 fun SailorScreen() {
     Box(
@@ -84,10 +95,13 @@ fun SailorScreen() {
         var hasAppeared by remember { mutableStateOf(false) }
         var showClouds by remember { mutableStateOf(false) } // New state for clouds
         var showSun by remember { mutableStateOf(false) } // New state for sun
+        var showRain by remember { mutableStateOf(false) } // New state for rain
 
         val localDensity = LocalDensity.current // Declare LocalDensity here
+
+        // Use mutableStateOf for screen dimensions so they can be updated from BoxWithConstraints
         var screenWidthPx by remember { mutableStateOf(0f) }
-        var screenHeightDp by remember { mutableStateOf(0.dp) }
+        var screenHeightPx by remember { mutableStateOf(0f) }
 
         // Animação de entrada
         LaunchedEffect(Unit) {
@@ -120,26 +134,31 @@ fun SailorScreen() {
             animationSpec = spring(stiffness = Spring.StiffnessVeryLow, dampingRatio = Spring.DampingRatioLowBouncy)
         )
 
+        // Declaring totalMilkHeightPx here to make it accessible outside BoxWithConstraints
+        var totalMilkHeightPx by remember { mutableStateOf(0f) }
+
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize()
         ) {
-            screenHeightDp = maxHeight // Assign maxHeight to screenHeightDp
+            val currentScreenHeightDp = maxHeight
             val currentScreenWidthDp = maxWidth
 
-            LaunchedEffect(currentScreenWidthDp) {
+            // Update screen dimensions in pixels
+            LaunchedEffect(currentScreenWidthDp, currentScreenHeightDp) {
                 screenWidthPx = with(localDensity) { currentScreenWidthDp.toPx() }
+                screenHeightPx = with(localDensity) { currentScreenHeightDp.toPx() }
             }
 
             val rotationAbs = abs(rotation)
             val heightOffset = if (rotationAbs > 60f) {
                 val progress = ((rotationAbs - 60f) / 30f).coerceIn(0f, 1f)
-                screenHeightDp * 0.25f * progress
+                currentScreenHeightDp * 0.25f * progress
             } else {
                 0.dp
             }
 
             // Altura da parte líquida cheia
-            val milkBodyHeight = (screenHeightDp * heightPercentage) - heightOffset
+            val milkBodyHeight = (currentScreenHeightDp * heightPercentage) - heightOffset
 
             // Altura extra para as ondas não serem cortadas
             // Ajustamos a amplitude das ondas com base na rotação:
@@ -150,6 +169,11 @@ fun SailorScreen() {
 
             // Altura total do container do leite
             val totalMilkHeight = if (milkBodyHeight > 0.dp) milkBodyHeight + waveAmplitude else 0.dp
+
+            // Update totalMilkHeightPx from here
+            LaunchedEffect(totalMilkHeight) {
+                totalMilkHeightPx = with(localDensity) { totalMilkHeight.toPx() }
+            }
 
             Canvas(
                 modifier = Modifier
@@ -218,7 +242,7 @@ fun SailorScreen() {
                         rotate(degrees = angle.toFloat(), pivot = Offset.Zero)
                         scale(scaleX = 4.5f, scaleY = 4.5f, pivot = Offset.Zero)
                     }) {
-                         // Casco do navio de papel (Branco)
+                        // Casco do navio de papel (Branco)
                         val hullPath = Path()
                         hullPath.moveTo(-40f, -10f) // Ponta esquerda
                         hullPath.lineTo(40f, -10f)  // Ponta direita
@@ -248,7 +272,7 @@ fun SailorScreen() {
                     val pathFront = Path()
                     pathFront.moveTo(startX, height + 4000f)
                     pathFront.lineTo(startX, midLineY)
-                    
+
                     x = startX
                     while (x <= endX) {
                         val sine = sin((x / width) * 2.5 * PI + phase.toDouble()).toFloat()
@@ -259,11 +283,14 @@ fun SailorScreen() {
                     pathFront.lineTo(endX, midLineY)
                     pathFront.lineTo(endX, height + 4000f)
                     pathFront.close()
-                    
+
                     drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
                 }
             }
         }
+
+        // Calculate sea level in Px here, after BoxWithConstraints has set screenHeightPx and totalMilkHeightPx
+        val currentSeaLevelYPx = screenHeightPx - totalMilkHeightPx
 
         // --- Novo Menu Interativo ---
         var isMenuExpanded by remember { mutableStateOf(false) }
@@ -353,8 +380,8 @@ fun SailorScreen() {
                             clip = true
                         },
                     colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
-                    
-                ) {
+
+                    ) {
                     Column(
                         modifier = Modifier
                             .padding(16.dp)
@@ -369,6 +396,7 @@ fun SailorScreen() {
                                     when (icon) {
                                         Icons.Default.Cloud -> showClouds = !showClouds
                                         Icons.Default.WbSunny -> showSun = !showSun
+                                        Icons.Default.Grain -> showRain = !showRain // Toggle rain
                                     }
                                 },
                                 modifier = Modifier // Removed fillMaxWidth()
@@ -390,12 +418,25 @@ fun SailorScreen() {
         }
 
         // Infinite Clouds
-        if (showClouds) {
+        if (showClouds || showRain) { // Show clouds if either showClouds or showRain is true
             InfiniteClouds(
                 modifier = Modifier
                     .fillMaxSize()
                     .align(Alignment.TopStart),
-                screenWidth = screenWidthPx
+                screenWidth = screenWidthPx,
+                showRain = showRain, // Pass new state
+                showClouds = showClouds, // Pass showClouds state
+                seaLevelYPx = currentSeaLevelYPx // Pass sea level
+            )
+        }
+
+        // Rain Effect
+        if (showRain) {
+            RainEffect(
+                modifier = Modifier.fillMaxSize(),
+                screenWidthPx = screenWidthPx,
+                screenHeightPx = screenHeightPx,
+                seaLevelYPx = currentSeaLevelYPx
             )
         }
 
@@ -422,23 +463,46 @@ fun SailorScreen() {
 }
 
 @Composable
-fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
+fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: Boolean, showClouds: Boolean, seaLevelYPx: Float) {
     val clouds = remember { mutableStateListOf<Cloud>() }
     val density = LocalDensity.current.density
 
-    LaunchedEffect(Unit) {
-        // Adiciona um conjunto inicial de nuvens para aparecerem imediatamente
-        repeat(5) { // Adiciona 5 nuvens inicialmente
-            val size = Random.nextFloat() * 40f + 30f // Tamanho entre 30dp e 70dp
-            val speed = Random.nextFloat() * 50f + 20f // Velocidade entre 20dp/s e 70dp/s
-            val y = Random.nextFloat() * (300f) // Posição Y entre 0dp e 300dp do topo
-            val alpha = Random.nextFloat() * 0.4f + 0.3f // Alpha entre 0.3 e 0.7
-            val color = Color.White.copy(alpha = alpha) // Nuvens brancas com alpha variável
+    // Re-initialize clouds when showClouds or showRain state changes
+    LaunchedEffect(showClouds, showRain) {
+        clouds.clear()
+        if (showRain) {
+            // When rain starts, generate a set of 'rainy' clouds that move from left to right.
+            repeat(7) { // More clouds for a rainy effect
+                val size = Random.nextFloat() * 50f + 40f // Larger clouds for rain
+                val speed = Random.nextFloat() * 30f + 15f // Slower speed for rain clouds
+                val cloudHeightInPixels = (20.0f / 24f) * size * density // Approximate height of the cloud in pixels
+                val paddingPx = 20f * density // 20.dp padding in pixels
+                val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
 
-            // Posiciona as nuvens aleatoriamente dentro da largura da tela para que apareçam imediatamente
-            clouds.add(Cloud(x = Random.nextFloat() * screenWidth, y = y, size = size, speed = speed, alpha = alpha, color = color))
+                val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position, ensuring cloud is above sea
+                val alpha = Random.nextFloat() * 0.5f + 0.4f // Denser clouds
+                val color = Color.Gray.copy(alpha = alpha) // Grayish clouds for rain
+                // Position them across the screen initially, slightly off-screen to the right to simulate entry
+                clouds.add(Cloud(x = Random.nextFloat() * screenWidth * 1.5f - screenWidth * 0.5f, y = y, size = size, speed = speed, alpha = alpha, color = color))
+            }
+        } else if (showClouds) {
+            // When showClouds is true (and not raining), generate an initial set of normal clouds
+            repeat(Random.nextInt(3, 6)) { // Generate 3 to 5 normal clouds initially
+                val size = Random.nextFloat() * 40f + 30f
+                val speed = Random.nextFloat() * 50f + 20f
+                val cloudHeightInPixels = (20.0f / 24f) * size * density
+                val paddingPx = 20f * density
+                val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
+
+                val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f)
+                val alpha = Random.nextFloat() * 0.4f + 0.3f
+                val color = Color.White.copy(alpha = alpha)
+                clouds.add(Cloud(x = Random.nextFloat() * screenWidth, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Position them anywhere on screen
+            }
         }
+    }
 
+    LaunchedEffect(Unit) { // This LaunchedEffect handles continuous cloud movement and periodic generation
         var lastFrameTime = 0L
         while (true) {
             withFrameNanos { frameTime ->
@@ -449,21 +513,36 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
                 // Update existing clouds
                 for (i in clouds.indices.reversed()) {
                     val cloud = clouds[i]
-                    cloud.x -= cloud.speed * deltaTimeSeconds * density // Adjust speed by density (changed from += to -=)
-                    if (cloud.x < -cloud.size * 2) { // Remove if off-screen to the left (changed condition)
-                        clouds.removeAt(i)
+                    if (showRain) {
+                        cloud.x += cloud.speed * deltaTimeSeconds * density // Rain clouds move left to right
+                        if (cloud.x > screenWidth + cloud.size * density * 2) { // Remove if off-screen to the right, adjusted for density
+                            clouds.removeAt(i)
+                        }
+                    } else {
+                        cloud.x -= cloud.speed * deltaTimeSeconds * density // Normal clouds move right to left
+                        if (cloud.x < -cloud.size * density * 2) { // Remove if off-screen to the left, adjusted for density
+                            clouds.removeAt(i)
+                        }
                     }
                 }
 
-                // Add new clouds periodically (ainda com chance aleatória para o fluxo contínuo)
-                if (Random.nextFloat() < 0.02f) { // Probability of adding a new cloud each frame
-                    val size = Random.nextFloat() * 40f + 30f // Cloud size between 30dp and 70dp
-                    val speed = Random.nextFloat() * 50f + 20f // Cloud speed between 20dp/s and 70dp/s
-                    val y = Random.nextFloat() * (300f) // Y position between 0dp and 300dp from top
-                    val alpha = Random.nextFloat() * 0.4f + 0.3f // Alpha between 0.3 and 0.7
-                    val color = Color.White.copy(alpha = alpha) // White clouds with varying alpha
+                // Add new clouds periodically only if clouds are meant to be shown (either normal or rainy)
+                if ((showClouds || showRain) && Random.nextFloat() < 0.02f) { // Probability of adding a new cloud each frame
+                    val size = if (showRain) Random.nextFloat() * 50f + 40f else Random.nextFloat() * 40f + 30f // Size based on rain state
+                    val speed = if (showRain) Random.nextFloat() * 30f + 15f else Random.nextFloat() * 50f + 20f // Speed based on rain state
+                    val cloudHeightInPixels = (20.0f / 24f) * size * density
+                    val paddingPx = 20f * density
+                    val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
 
-                    clouds.add(Cloud(x = screenWidth + size * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from right (changed x)
+                    val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position
+                    val alpha = if (showRain) Random.nextFloat() * 0.5f + 0.4f else Random.nextFloat() * 0.4f + 0.3f // Alpha based on rain state
+                    val color = if (showRain) Color.Gray.copy(alpha = alpha) else Color.White.copy(alpha = alpha) // Color based on rain state
+
+                    if (showRain) {
+                        clouds.add(Cloud(x = -size * density * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from left, adjusted for density
+                    } else {
+                        clouds.add(Cloud(x = screenWidth + size * density * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from right, adjusted for density
+                    }
                 }
             }
         }
@@ -573,10 +652,60 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
 
             // Apply translation when drawing the path
             withTransform({
-                translate(left = cloud.x * density, top = cloud.y * density)
+                translate(left = cloud.x, top = cloud.y) // Removed * density
             }) {
                 drawPath(cloudPath, color = cloud.color, alpha = cloud.alpha)
             }
+        }
+    }
+}
+
+@Composable
+fun RainEffect(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightPx: Float, seaLevelYPx: Float) {
+    val rainDrops = remember { mutableStateListOf<RainDrop>() }
+    val density = LocalDensity.current.density
+
+    LaunchedEffect(Unit) {
+        var lastFrameTime = 0L
+        while (true) {
+            withFrameNanos { frameTime ->
+                val deltaTimeNs = if (lastFrameTime > 0) frameTime - lastFrameTime else 0L
+                lastFrameTime = frameTime
+                val deltaTimeSeconds = deltaTimeNs / 1_000_000_000f
+
+                // Update existing rain drops
+                for (i in rainDrops.indices.reversed()) {
+                    val drop = rainDrops[i]
+                    drop.y += drop.speed * deltaTimeSeconds * density
+                    if (drop.y > seaLevelYPx) { // Remove if hits the sea
+                        rainDrops.removeAt(i)
+                    }
+                }
+
+                // Add new rain drops periodically
+                if (Random.nextFloat() < 0.8f) { // High probability for dense rain
+                    val x = Random.nextFloat() * screenWidthPx
+                    val y = Random.nextFloat() * (seaLevelYPx * 0.4f) // Start from top, down to cloud level
+                    val length = Random.nextFloat() * 10f + 5f // Length between 5dp and 15dp
+                    val speed = Random.nextFloat() * 300f + 200f // Speed between 200dp/s and 500dp/s
+                    val alpha = Random.nextFloat() * 0.7f + 0.3f
+                    rainDrops.add(RainDrop(x = x, y = y, length = length, speed = speed, alpha = alpha))
+                }
+            }
+        }
+    }
+
+    Canvas(modifier = modifier) {
+        rainDrops.forEach { drop ->
+            val start = Offset(drop.x, drop.y)
+            val end = Offset(drop.x, drop.y + drop.length * density)
+            drawLine(
+                color = Color.White.copy(alpha = drop.alpha),
+                start = start,
+                end = end,
+                strokeWidth = 1.5f * density, // Thin rain drops
+                cap = StrokeCap.Round
+            )
         }
     }
 }
