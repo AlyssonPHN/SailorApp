@@ -427,6 +427,18 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
     val density = LocalDensity.current.density
 
     LaunchedEffect(Unit) {
+        // Adiciona um conjunto inicial de nuvens para aparecerem imediatamente
+        repeat(5) { // Adiciona 5 nuvens inicialmente
+            val size = Random.nextFloat() * 40f + 30f // Tamanho entre 30dp e 70dp
+            val speed = Random.nextFloat() * 50f + 20f // Velocidade entre 20dp/s e 70dp/s
+            val y = Random.nextFloat() * (300f) // Posição Y entre 0dp e 300dp do topo
+            val alpha = Random.nextFloat() * 0.4f + 0.3f // Alpha entre 0.3 e 0.7
+            val color = Color.White.copy(alpha = alpha) // Nuvens brancas com alpha variável
+
+            // Posiciona as nuvens aleatoriamente dentro da largura da tela para que apareçam imediatamente
+            clouds.add(Cloud(x = Random.nextFloat() * screenWidth, y = y, size = size, speed = speed, alpha = alpha, color = color))
+        }
+
         var lastFrameTime = 0L
         while (true) {
             withFrameNanos { frameTime ->
@@ -437,13 +449,13 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
                 // Update existing clouds
                 for (i in clouds.indices.reversed()) {
                     val cloud = clouds[i]
-                    cloud.x += cloud.speed * deltaTimeSeconds * density // Adjust speed by density
-                    if (cloud.x > screenWidth + cloud.size * 2) { // Remove if off-screen to the right
+                    cloud.x -= cloud.speed * deltaTimeSeconds * density // Adjust speed by density (changed from += to -=)
+                    if (cloud.x < -cloud.size * 2) { // Remove if off-screen to the left (changed condition)
                         clouds.removeAt(i)
                     }
                 }
 
-                // Add new clouds periodically
+                // Add new clouds periodically (ainda com chance aleatória para o fluxo contínuo)
                 if (Random.nextFloat() < 0.02f) { // Probability of adding a new cloud each frame
                     val size = Random.nextFloat() * 40f + 30f // Cloud size between 30dp and 70dp
                     val speed = Random.nextFloat() * 50f + 20f // Cloud speed between 20dp/s and 70dp/s
@@ -451,7 +463,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
                     val alpha = Random.nextFloat() * 0.4f + 0.3f // Alpha between 0.3 and 0.7
                     val color = Color.White.copy(alpha = alpha) // White clouds with varying alpha
 
-                    clouds.add(Cloud(x = -size * 2, y = y, size = size, speed = speed, alpha = alpha, color = color))
+                    clouds.add(Cloud(x = screenWidth + size * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from right (changed x)
                 }
             }
         }
@@ -576,7 +588,7 @@ fun InfiniteSun(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, s
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(6000, easing = LinearEasing),
+            animation = tween(16000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         )
     )
