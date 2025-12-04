@@ -79,7 +79,11 @@ fun SailorScreen() {
         var isExpanded by remember { mutableStateOf(true) }
         var hasAppeared by remember { mutableStateOf(false) }
         var showClouds by remember { mutableStateOf(false) } // New state for clouds
-        var screenWidthPx by remember { mutableStateOf(0f) } // Declaring screenWidthPx here
+        var showSun by remember { mutableStateOf(false) } // New state for sun
+
+        val localDensity = LocalDensity.current // Declare LocalDensity here
+        var screenWidthPx by remember { mutableStateOf(0f) }
+        var screenHeightDp by remember { mutableStateOf(0.dp) }
 
         // Animação de entrada
         LaunchedEffect(Unit) {
@@ -115,24 +119,23 @@ fun SailorScreen() {
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize()
         ) {
-            val screenHeight = maxHeight
-            // Assign screenWidthPx inside BoxWithConstraints
-            val currentScreenWidth = maxWidth
-            val localDensity = LocalDensity.current
-            LaunchedEffect(currentScreenWidth) {
-                screenWidthPx = with(localDensity) { currentScreenWidth.toPx() }
+            screenHeightDp = maxHeight // Assign maxHeight to screenHeightDp
+            val currentScreenWidthDp = maxWidth
+
+            LaunchedEffect(currentScreenWidthDp) {
+                screenWidthPx = with(localDensity) { currentScreenWidthDp.toPx() }
             }
 
             val rotationAbs = abs(rotation)
             val heightOffset = if (rotationAbs > 60f) {
                 val progress = ((rotationAbs - 60f) / 30f).coerceIn(0f, 1f)
-                screenHeight * 0.25f * progress
+                screenHeightDp * 0.25f * progress
             } else {
                 0.dp
             }
 
             // Altura da parte líquida cheia
-            val milkBodyHeight = (screenHeight * heightPercentage) - heightOffset
+            val milkBodyHeight = (screenHeightDp * heightPercentage) - heightOffset
 
             // Altura extra para as ondas não serem cortadas
             // Ajustamos a amplitude das ondas com base na rotação:
@@ -290,7 +293,7 @@ fun SailorScreen() {
         val iconSize = 24.dp
         val centerCircleSize = 48.dp
 
-        val density = LocalDensity.current
+        // Removed LocalDensity.current from here, it's now at the top of SailorScreen
 
         Box(
             modifier = Modifier
@@ -312,8 +315,8 @@ fun SailorScreen() {
             val icons = listOf(Icons.Default.Cloud, Icons.Default.WbSunny, Icons.Default.Grain, Icons.Default.Brightness2)
             icons.forEachIndexed { index, icon ->
                 val angle = (iconRotation + index * (360f / icons.size)) * PI.toFloat() / 180f
-                val offsetX = with(density) { (orbRadius.toPx() * cos(angle)).toDp() }
-                val offsetY = with(density) { (orbRadius.toPx() * sin(angle)).toDp() }
+                val offsetX = with(localDensity) { (orbRadius.toPx() * cos(angle)).toDp() }
+                val offsetY = with(localDensity) { (orbRadius.toPx() * sin(angle)).toDp() }
 
                 if (!isMenuExpanded) {
                     Icon(
@@ -335,7 +338,7 @@ fun SailorScreen() {
                         .wrapContentSize(Alignment.CenterEnd) // Changed fillMaxWidth to wrapContentSize
                         // .blur(16.dp) // <<< REMOVED THIS LINE
                         .offset { // Apply animated offset here
-                            with(density) {
+                            with(localDensity) {
                                 IntOffset(x = menuOffset.x.toPx().roundToInt(), y = menuOffset.y.toPx().roundToInt())
                             }
                         }
@@ -359,8 +362,9 @@ fun SailorScreen() {
                             IconButton(
                                 onClick = {
                                     isMenuExpanded = false
-                                    if (icon == Icons.Default.Cloud) {
-                                        showClouds = !showClouds // Toggle clouds when cloud icon is clicked
+                                    when (icon) {
+                                        Icons.Default.Cloud -> showClouds = !showClouds
+                                        Icons.Default.WbSunny -> showSun = !showSun
                                     }
                                 },
                                 modifier = Modifier // Removed fillMaxWidth()
@@ -388,6 +392,23 @@ fun SailorScreen() {
                     .fillMaxSize()
                     .align(Alignment.TopStart),
                 screenWidth = screenWidthPx
+            )
+        }
+
+        // Infinite Sun
+        if (showSun) {
+            val sunSizeDp = 100.dp
+            val sunSizePx = with(localDensity) { sunSizeDp.toPx() }
+            val sunOffsetX = with(localDensity) { (screenWidthPx - sunSizePx) / 2 } // Center horizontally
+            val sunOffsetY = with(localDensity) { (screenHeightDp * 0.2f).toPx() } // Top part
+            InfiniteSun(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.TopStart),
+                offsetX = sunOffsetX,
+                offsetY = sunOffsetY,
+                sunSize = sunSizePx,
+                color = Color(0xFFFFC107) // Amarelo para o sol
             )
         }
     }
@@ -435,7 +456,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
             val iconGridSize = 24f // Material icons are typically based on a 24x24 grid
             val scaleFactor = cloudSizePx / iconGridSize
 
-            // currentX and currentY will track the local coordinates *within the Path*
+            // We need to keep track of the current point for relative commands
             var currentLocalX = 0f
             var currentLocalY = 0f
 
@@ -527,7 +548,6 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
                     currentLocalX + dc2x_rel3, currentLocalY + dc2y_rel3,
                     currentLocalX + dex_rel3, currentLocalY + dey_rel3
                 )
-                // currentLocalX e currentLocalY não precisam ser atualizados aqui, close() lida com isso ao fechar o caminho para o ponto de início.
 
                 close()
             }
@@ -538,6 +558,248 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float) {
             }) {
                 drawPath(cloudPath, color = cloud.color, alpha = cloud.alpha)
             }
+        }
+    }
+}
+
+@Composable
+fun InfiniteSun(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, sunSize: Float, color: Color) {
+    val infiniteTransition = rememberInfiniteTransition()
+    val sunRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    val iconGridSize = 24f // Material icons are typically based on a 24x24 grid
+    val scaleFactor = sunSize / iconGridSize
+
+    // Pivot for rotation, center of the 24x24 grid is (12, 12)
+    val pivotX = 12f * scaleFactor
+    val pivotY = 12f * scaleFactor
+
+    val sunPath = remember(scaleFactor) {
+        Path().apply {
+            var currentX = 0f
+            var currentY = 0f
+            var lastC2X = 0f
+            var lastC2Y = 0f
+
+            // Helper to update currentX/Y after a command
+            fun updateCurrent(x: Float, y: Float) {
+                currentX = x
+                currentY = y
+            }
+
+            // Central Circle
+            // moveTo(12.0f, 5.5f)
+            moveTo(12.0f * scaleFactor, 5.5f * scaleFactor)
+            updateCurrent(12.0f * scaleFactor, 5.5f * scaleFactor)
+
+            // curveToRelative(-3.31f, 0.0f, -6.0f, 2.69f, -6.0f, 6.0f)
+            val c1x_r1 = currentX + (-3.31f * scaleFactor)
+            val c1y_r1 = currentY + (0.0f * scaleFactor)
+            val c2x_r1 = currentX + (-6.0f * scaleFactor)
+            val c2y_r1 = currentY + (2.69f * scaleFactor)
+            val endX_r1 = currentX + (-6.0f * scaleFactor)
+            val endY_r1 = currentY + (6.0f * scaleFactor)
+            cubicTo(c1x_r1, c1y_r1, c2x_r1, c2y_r1, endX_r1, endY_r1)
+            updateCurrent(endX_r1, endY_r1)
+            lastC2X = c2x_r1
+            lastC2Y = c2y_r1
+
+            // reflectiveCurveToRelative(2.69f, 6.0f, 6.0f, 6.0f)
+            val rc1x_r2 = currentX + (currentX - lastC2X) // Reflection
+            val rc1y_r2 = currentY + (currentY - lastC2Y) // Reflection
+            val rc2x_r2 = currentX + (2.69f * scaleFactor)
+            val rc2y_r2 = currentY + (6.0f * scaleFactor)
+            val rendX_r2 = currentX + (6.0f * scaleFactor)
+            val rendY_r2 = currentY + (6.0f * scaleFactor)
+            cubicTo(rc1x_r2, rc1y_r2, rc2x_r2, rc2y_r2, rendX_r2, rendY_r2)
+            updateCurrent(rendX_r2, rendY_r2)
+            lastC2X = rc2x_r2
+            lastC2Y = rc2y_r2
+
+            // reflectiveCurveToRelative(6.0f, -2.69f, 6.0f, -6.0f)
+            val rc1x_r3 = currentX + (currentX - lastC2X)
+            val rc1y_r3 = currentY + (currentY - lastC2Y)
+            val rc2x_r3 = currentX + (6.0f * scaleFactor)
+            val rc2y_r3 = currentY + (-2.69f * scaleFactor)
+            val rendX_r3 = currentX + (6.0f * scaleFactor)
+            val rendY_r3 = currentY + (-6.0f * scaleFactor)
+            cubicTo(rc1x_r3, rc1y_r3, rc2x_r3, rc2y_r3, rendX_r3, rendY_r3)
+            updateCurrent(rendX_r3, rendY_r3)
+            lastC2X = rc2x_r3
+            lastC2Y = rc2y_r3
+
+            // reflectiveCurveToRelative(-2.69f, -6.0f, -6.0f, -6.0f)
+            val rc1x_r4 = currentX + (currentX - lastC2X)
+            val rc1y_r4 = currentY + (currentY - lastC2Y)
+            val rc2x_r4 = currentX + (-2.69f * scaleFactor)
+            val rc2y_r4 = currentY + (-6.0f * scaleFactor)
+            val rendX_r4 = currentX + (-6.0f * scaleFactor)
+            val rendY_r4 = currentY + (-6.0f * scaleFactor)
+            cubicTo(rc1x_r4, rc1y_r4, rc2x_r4, rc2y_r4, rendX_r4, rendY_r4)
+            updateCurrent(rendX_r4, rendY_r4)
+            // lastC2X and lastC2Y not strictly needed as we `close()` next
+            close() // Closes the central circle
+
+
+            // Rays - Each ray is a new subpath starting with moveTo
+            // Ray 1 (top-left diagonal)
+            // moveTo(6.76f, 4.84f)
+            moveTo(6.76f * scaleFactor, 4.84f * scaleFactor)
+            updateCurrent(6.76f * scaleFactor, 4.84f * scaleFactor)
+            // lineToRelative(-1.8f, -1.79f)
+            lineTo(currentX + (-1.8f * scaleFactor), currentY + (-1.79f * scaleFactor))
+            updateCurrent(currentX + (-1.8f * scaleFactor), currentY + (-1.79f * scaleFactor))
+            // lineToRelative(-1.41f, 1.41f)
+            lineTo(currentX + (-1.41f * scaleFactor), currentY + (1.41f * scaleFactor))
+            updateCurrent(currentX + (-1.41f * scaleFactor), currentY + (1.41f * scaleFactor))
+            // lineToRelative(1.79f, 1.79f)
+            lineTo(currentX + (1.79f * scaleFactor), currentY + (1.79f * scaleFactor))
+            updateCurrent(currentX + (1.79f * scaleFactor), currentY + (1.79f * scaleFactor))
+            // lineToRelative(1.42f, -1.41f)
+            lineTo(currentX + (1.42f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            updateCurrent(currentX + (1.42f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            close() // Closes the first ray
+
+            // Ray 2 (left horizontal)
+            // moveTo(4.0f, 10.5f)
+            moveTo(4.0f * scaleFactor, 10.5f * scaleFactor)
+            updateCurrent(4.0f * scaleFactor, 10.5f * scaleFactor)
+            // lineTo(1.0f, 10.5f)
+            lineTo(1.0f * scaleFactor, 10.5f * scaleFactor)
+            updateCurrent(1.0f * scaleFactor, 10.5f * scaleFactor)
+            // verticalLineToRelative(2.0f)
+            lineTo(currentX, currentY + (2.0f * scaleFactor))
+            updateCurrent(currentX, currentY + (2.0f * scaleFactor))
+            // horizontalLineToRelative(3.0f)
+            lineTo(currentX + (3.0f * scaleFactor), currentY)
+            updateCurrent(currentX + (3.0f * scaleFactor), currentY)
+            // The original implicitly closes the path, explicitly connect to the start for clarity
+            lineTo(4.0f * scaleFactor, 10.5f * scaleFactor)
+            close()
+
+            // Ray 3 (top vertical)
+            // moveTo(13.0f, 0.55f)
+            moveTo(13.0f * scaleFactor, 0.55f * scaleFactor)
+            updateCurrent(13.0f * scaleFactor, 0.55f * scaleFactor)
+            // horizontalLineToRelative(-2.0f)
+            lineTo(currentX + (-2.0f * scaleFactor), currentY)
+            updateCurrent(currentX + (-2.0f * scaleFactor), currentY)
+            // lineTo(11.0f, 3.5f)
+            lineTo(11.0f * scaleFactor, 3.5f * scaleFactor)
+            updateCurrent(11.0f * scaleFactor, 3.5f * scaleFactor)
+            // horizontalLineToRelative(2.0f)
+            lineTo(currentX + (2.0f * scaleFactor), currentY)
+            updateCurrent(currentX + (2.0f * scaleFactor), currentY)
+            // lineTo(13.0f, 0.55f)
+            lineTo(13.0f * scaleFactor, 0.55f * scaleFactor)
+            close()
+
+            // Ray 4 (top-right diagonal)
+            // moveTo(20.45f, 4.46f)
+            moveTo(20.45f * scaleFactor, 4.46f * scaleFactor)
+            updateCurrent(20.45f * scaleFactor, 4.46f * scaleFactor)
+            // lineToRelative(-1.41f, -1.41f)
+            lineTo(currentX + (-1.41f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            updateCurrent(currentX + (-1.41f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            // lineToRelative(-1.79f, 1.79f)
+            lineTo(currentX + (-1.79f * scaleFactor), currentY + (1.79f * scaleFactor))
+            updateCurrent(currentX + (-1.79f * scaleFactor), currentY + (1.79f * scaleFactor))
+            // lineToRelative(1.41f, 1.41f)
+            lineTo(currentX + (1.41f * scaleFactor), currentY + (1.41f * scaleFactor))
+            updateCurrent(currentX + (1.41f * scaleFactor), currentY + (1.41f * scaleFactor))
+            // lineToRelative(1.79f, -1.79f)
+            lineTo(currentX + (1.79f * scaleFactor), currentY + (-1.79f * scaleFactor))
+            updateCurrent(currentX + (1.79f * scaleFactor), currentY + (-1.79f * scaleFactor))
+            close()
+
+            // Ray 5 (bottom-right diagonal)
+            // moveTo(17.24f, 18.16f)
+            moveTo(17.24f * scaleFactor, 18.16f * scaleFactor)
+            updateCurrent(17.24f * scaleFactor, 18.16f * scaleFactor)
+            // lineToRelative(1.79f, 1.8f)
+            lineTo(currentX + (1.79f * scaleFactor), currentY + (1.8f * scaleFactor))
+            updateCurrent(currentX + (1.79f * scaleFactor), currentY + (1.8f * scaleFactor))
+            // lineToRelative(1.41f, -1.41f)
+            lineTo(currentX + (1.41f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            updateCurrent(currentX + (1.41f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            // lineToRelative(-1.8f, -1.79f)
+            lineTo(currentX + (-1.8f * scaleFactor), currentY + (-1.79f * scaleFactor))
+            updateCurrent(currentX + (-1.8f * scaleFactor), currentY + (-1.79f * scaleFactor))
+            // lineToRelative(-1.4f, 1.4f)
+            lineTo(currentX + (-1.4f * scaleFactor), currentY + (1.4f * scaleFactor))
+            updateCurrent(currentX + (-1.4f * scaleFactor), currentY + (1.4f * scaleFactor))
+            close()
+
+            // Ray 6 (right horizontal)
+            // moveTo(20.0f, 10.5f)
+            moveTo(20.0f * scaleFactor, 10.5f * scaleFactor)
+            updateCurrent(20.0f * scaleFactor, 10.5f * scaleFactor)
+            // verticalLineToRelative(2.0f)
+            lineTo(currentX, currentY + (2.0f * scaleFactor))
+            updateCurrent(currentX, currentY + (2.0f * scaleFactor))
+            // horizontalLineToRelative(3.0f)
+            lineTo(currentX + (3.0f * scaleFactor), currentY)
+            updateCurrent(currentX + (3.0f * scaleFactor), currentY)
+            // verticalLineToRelative(-2.0f)
+            lineTo(currentX, currentY + (-2.0f * scaleFactor))
+            updateCurrent(currentX, currentY + (-2.0f * scaleFactor))
+            // horizontalLineToRelative(-3.0f)
+            lineTo(currentX + (-3.0f * scaleFactor), currentY)
+            updateCurrent(currentX + (-3.0f * scaleFactor), currentY)
+            close()
+
+            // Ray 7 (bottom vertical)
+            // moveTo(11.0f, 22.45f)
+            moveTo(11.0f * scaleFactor, 22.45f * scaleFactor)
+            updateCurrent(11.0f * scaleFactor, 22.45f * scaleFactor)
+            // horizontalLineToRelative(2.0f)
+            lineTo(currentX + (2.0f * scaleFactor), currentY)
+            updateCurrent(currentX + (2.0f * scaleFactor), currentY)
+            // lineTo(13.0f, 19.5f)
+            lineTo(13.0f * scaleFactor, 19.5f * scaleFactor)
+            updateCurrent(13.0f * scaleFactor, 19.5f * scaleFactor)
+            // horizontalLineToRelative(-2.0f)
+            lineTo(currentX + (-2.0f * scaleFactor), currentY)
+            updateCurrent(currentX + (-2.0f * scaleFactor), currentY)
+            // verticalLineToRelative(2.95f)
+            lineTo(currentX, currentY + (2.95f * scaleFactor))
+            updateCurrent(currentX, currentY + (2.95f * scaleFactor))
+            close()
+
+            // Ray 8 (bottom-left diagonal)
+            // moveTo(3.55f, 18.54f)
+            moveTo(3.55f * scaleFactor, 18.54f * scaleFactor)
+            updateCurrent(3.55f * scaleFactor, 18.54f * scaleFactor)
+            // lineToRelative(1.41f, 1.41f)
+            lineTo(currentX + (1.41f * scaleFactor), currentY + (1.41f * scaleFactor))
+            updateCurrent(currentX + (1.41f * scaleFactor), currentY + (1.41f * scaleFactor))
+            // lineToRelative(1.79f, -1.8f)
+            lineTo(currentX + (1.79f * scaleFactor), currentY + (-1.8f * scaleFactor))
+            updateCurrent(currentX + (1.79f * scaleFactor), currentY + (-1.8f * scaleFactor))
+            // lineToRelative(-1.41f, -1.41f)
+            lineTo(currentX + (-1.41f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            updateCurrent(currentX + (-1.41f * scaleFactor), currentY + (-1.41f * scaleFactor))
+            // lineToRelative(-1.79f, 1.8f)
+            lineTo(currentX + (-1.79f * scaleFactor), currentY + (1.8f * scaleFactor))
+            updateCurrent(currentX + (-1.79f * scaleFactor), currentY + (1.8f * scaleFactor))
+            close()
+        }
+    }
+
+    Canvas(modifier = modifier) {
+        // Draw the sun path with translation and rotation
+        withTransform({
+            translate(left = offsetX, top = offsetY)
+            rotate(degrees = sunRotation, pivot = Offset(pivotX, pivotY))
+        }) {
+            drawPath(sunPath, color = color, alpha = 1f) // Alpha fixed to 1f for the sun
         }
     }
 }
