@@ -181,6 +181,7 @@ fun SailorScreen() {
                     .height(totalMilkHeight)
                     .align(Alignment.BottomCenter)
                     .clickable { isExpanded = !isExpanded }
+                    .zIndex(0.5f) // Added zIndex here
             ) {
                 val width = size.width
                 val height = size.height
@@ -467,6 +468,21 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
     val clouds = remember { mutableStateListOf<Cloud>() }
     val density = LocalDensity.current.density
 
+    // Define constants for ship's dimensions to calculate minimum cloud height
+    val shipPivotToWaveTopOffsetDp = 15.dp
+    val shipSailHeightAbstract = 32f * 4.5f // Abstract units from ship's local coordinates, scaled
+    val cloudClearancePaddingDp = 0.dp // Padding between the cloud bottom and ship's highest point
+
+    // Calculate these once per recomposition if dependencies change
+    val shipPivotToWaveTopOffsetPx = with(LocalDensity.current) { shipPivotToWaveTopOffsetDp.toPx() }
+    val shipSailHeightPx = shipSailHeightAbstract * density // Convert abstract units to pixels
+    val cloudClearancePaddingPx = with(LocalDensity.current) { cloudClearancePaddingDp.toPx() }
+
+    // This is the global Y of the absolute highest point of the ship (top of sail)
+    // The ship's pivot can be at `seaLevelYPx - shipPivotToWaveTopOffsetPx` (highest point of the pivot on screen)
+    // The sail goes `shipSailHeightPx` upwards from there.
+    val actualShipHighestPointYPx = seaLevelYPx - shipPivotToWaveTopOffsetPx - shipSailHeightPx
+
     // Re-initialize clouds when showClouds or showRain state changes
     LaunchedEffect(showClouds, showRain) {
         clouds.clear()
@@ -476,12 +492,13 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 val size = Random.nextFloat() * 50f + 40f // Larger clouds for rain
                 val speed = 0f // Clouds are static when raining
                 val cloudHeightInPixels = (20.0f / 24f) * size * density // Approximate height of the cloud in pixels
-                val paddingPx = 20f * density // 20.dp padding in pixels
-                val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
+
+                // Ensure clouds are above the ship
+                val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
 
                 // Spread clouds across the entire screen width
                 val x = Random.nextFloat() * screenWidth
-                val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position, ensuring cloud is above sea
+                val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position, ensuring cloud is above ship
                 val alpha = Random.nextFloat() * 0.5f + 0.4f // Denser clouds
                 val color = Color.Gray.copy(alpha = alpha) // Grayish clouds for rain
                 clouds.add(Cloud(x = x, y = y, size = size, speed = speed, alpha = alpha, color = color))
@@ -492,8 +509,9 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 val size = Random.nextFloat() * 40f + 30f
                 val speed = Random.nextFloat() * 50f + 20f
                 val cloudHeightInPixels = (20.0f / 24f) * size * density
-                val paddingPx = 20f * density
-                val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
+
+                // Ensure clouds are above the ship
+                val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
 
                 val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f)
                 val alpha = Random.nextFloat() * 0.4f + 0.3f
@@ -531,8 +549,9 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                     val size = Random.nextFloat() * 40f + 30f
                     val speed = Random.nextFloat() * 50f + 20f
                     val cloudHeightInPixels = (20.0f / 24f) * size * density
-                    val paddingPx = 20f * density
-                    val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
+
+                    // Ensure clouds are above the ship
+                    val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
 
                     val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position
                     val alpha = Random.nextFloat() * 0.4f + 0.3f
