@@ -471,19 +471,20 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
     LaunchedEffect(showClouds, showRain) {
         clouds.clear()
         if (showRain) {
-            // When rain starts, generate a set of 'rainy' clouds that move from left to right.
-            repeat(7) { // More clouds for a rainy effect
+            // When rain starts, generate a set of 'rainy' clouds that are static and cover the sky.
+            repeat(25) { // Many clouds for a rainy effect, fixed count for better coverage
                 val size = Random.nextFloat() * 50f + 40f // Larger clouds for rain
-                val speed = Random.nextFloat() * 30f + 15f // Slower speed for rain clouds
+                val speed = 0f // Clouds are static when raining
                 val cloudHeightInPixels = (20.0f / 24f) * size * density // Approximate height of the cloud in pixels
                 val paddingPx = 20f * density // 20.dp padding in pixels
                 val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
 
+                // Spread clouds across the entire screen width
+                val x = Random.nextFloat() * screenWidth
                 val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position, ensuring cloud is above sea
                 val alpha = Random.nextFloat() * 0.5f + 0.4f // Denser clouds
                 val color = Color.Gray.copy(alpha = alpha) // Grayish clouds for rain
-                // Position them across the screen initially, slightly off-screen to the right to simulate entry
-                clouds.add(Cloud(x = Random.nextFloat() * screenWidth * 1.5f - screenWidth * 0.5f, y = y, size = size, speed = speed, alpha = alpha, color = color))
+                clouds.add(Cloud(x = x, y = y, size = size, speed = speed, alpha = alpha, color = color))
             }
         } else if (showClouds) {
             // When showClouds is true (and not raining), generate an initial set of normal clouds
@@ -513,36 +514,31 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 // Update existing clouds
                 for (i in clouds.indices.reversed()) {
                     val cloud = clouds[i]
-                    if (showRain) {
-                        cloud.x += cloud.speed * deltaTimeSeconds * density // Rain clouds move left to right
-                        if (cloud.x > screenWidth + cloud.size * density * 2) { // Remove if off-screen to the right, adjusted for density
-                            clouds.removeAt(i)
-                        }
-                    } else {
+                    if (!showRain) { // Only move clouds if it's NOT raining
                         cloud.x -= cloud.speed * deltaTimeSeconds * density // Normal clouds move right to left
-                        if (cloud.x < -cloud.size * density * 2) { // Remove if off-screen to the left, adjusted for density
+                        // Remove if off-screen to the left, adjusted for density.
+                        // For rain, clouds are static and not removed this way.
+                        if (cloud.x < -cloud.size * density * 2) {
                             clouds.removeAt(i)
                         }
                     }
+                    // If showRain is true, clouds do not move and are not removed based on x position.
                 }
 
                 // Add new clouds periodically only if clouds are meant to be shown (either normal or rainy)
-                if ((showClouds || showRain) && Random.nextFloat() < 0.02f) { // Probability of adding a new cloud each frame
-                    val size = if (showRain) Random.nextFloat() * 50f + 40f else Random.nextFloat() * 40f + 30f // Size based on rain state
-                    val speed = if (showRain) Random.nextFloat() * 30f + 15f else Random.nextFloat() * 50f + 20f // Speed based on rain state
+                // Do not add new clouds periodically if it's raining, as they are initially generated to cover the sky.
+                if (showClouds && Random.nextFloat() < 0.02f) { // Only add new clouds if showClouds is true and not raining
+                    val size = Random.nextFloat() * 40f + 30f
+                    val speed = Random.nextFloat() * 50f + 20f
                     val cloudHeightInPixels = (20.0f / 24f) * size * density
                     val paddingPx = 20f * density
                     val maxCloudTopYAllowed = seaLevelYPx - cloudHeightInPixels - paddingPx
 
                     val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position
-                    val alpha = if (showRain) Random.nextFloat() * 0.5f + 0.4f else Random.nextFloat() * 0.4f + 0.3f // Alpha based on rain state
-                    val color = if (showRain) Color.Gray.copy(alpha = alpha) else Color.White.copy(alpha = alpha) // Color based on rain state
+                    val alpha = Random.nextFloat() * 0.4f + 0.3f
+                    val color = Color.White.copy(alpha = alpha)
 
-                    if (showRain) {
-                        clouds.add(Cloud(x = -size * density * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from left, adjusted for density
-                    } else {
-                        clouds.add(Cloud(x = screenWidth + size * density * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from right, adjusted for density
-                    }
+                    clouds.add(Cloud(x = screenWidth + size * density * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from right, adjusted for density
                 }
             }
         }
