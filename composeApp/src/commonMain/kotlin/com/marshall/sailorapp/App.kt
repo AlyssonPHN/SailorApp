@@ -499,7 +499,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
             // Let's make it fill more of the top sky by picking a y value lower than usual
             val y = Random.nextFloat() * (maxCloudTopYAllowed * 0.7f).coerceAtLeast(0f)
             val alpha = Random.nextFloat() * 0.4f + 0.6f // Denser and more opaque
-            val color = Color.Gray.copy(alpha = alpha) // Grayish clouds for rain
+            val color = Color.Gray // Grayish clouds for rain
 //            clouds.add(Cloud(x = 0f, y = y, size = size, speed = speed, alpha = alpha, color = color))
             List(3) { index ->
                 clouds.add(Cloud(
@@ -508,7 +508,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                     size = size,
                     speed = speed,
                     alpha = alpha,
-                    color = Color.Gray
+                    color = color
                 ));
             }
         } else if (showClouds) {
@@ -632,12 +632,14 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
 
             // --- Apply Rotation Here ---
             val rotationDegrees = if (showRain) 180f else 0f // Apply 180 degrees rotation when raining
+            val alpha = if (showRain) .95f else cloud.alpha // Reduce alpha when raining
+
 
             withTransform({
                 translate(left = cloud.x, top = cloud.y)
                 rotate(degrees = rotationDegrees, pivot = Offset(cloudSizePx / 2f, cloudSizePx / 2.5f)) // Rotate around the center of the cloud
             }) {
-                drawPath(cloudPath, color = cloud.color, alpha = cloud.alpha)
+                drawPath(cloudPath, color = cloud.color, alpha = alpha)
             }
         }
     }
