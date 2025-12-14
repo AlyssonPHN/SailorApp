@@ -487,21 +487,29 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
     LaunchedEffect(showClouds, showRain) {
         clouds.clear()
         if (showRain) {
-            // When rain starts, generate a set of 'rainy' clouds that are static and cover the sky.
-            repeat(25) { // Many clouds for a rainy effect, fixed count for better coverage
-                val size = Random.nextFloat() * 50f + 40f // Larger clouds for rain
-                val speed = 0f // Clouds are static when raining
-                val cloudHeightInPixels = (20.0f / 24f) * size * density // Approximate height of the cloud in pixels
+            // Create a single cloud that spans the entire screen width with undulations.
+            val size = screenWidth / density * 1.5f // Adjusted multiplier to ensure full coverage and overlap
+            val speed = 0f // Clouds are static when raining
+            val cloudHeightInPixels = (20.0f / 24f) * size * density // Approximate height of the cloud in pixels
 
-                // Ensure clouds are above the ship
-                val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
+            // Ensure clouds are above the ship
+            val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
 
-                // Spread clouds across the entire screen width
-                val x = Random.nextFloat() * screenWidth
-                val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position, ensuring cloud is above ship
-                val alpha = Random.nextFloat() * 0.5f + 0.4f // Denser clouds
-                val color = Color.Gray.copy(alpha = alpha) // Grayish clouds for rain
-                clouds.add(Cloud(x = x, y = y, size = size, speed = speed, alpha = alpha, color = color))
+            // For a single large cloud, we can fix its Y or make it slightly random within a smaller range.
+            // Let's make it fill more of the top sky by picking a y value lower than usual
+            val y = Random.nextFloat() * (maxCloudTopYAllowed * 0.7f).coerceAtLeast(0f)
+            val alpha = Random.nextFloat() * 0.4f + 0.6f // Denser and more opaque
+            val color = Color.Gray.copy(alpha = alpha) // Grayish clouds for rain
+//            clouds.add(Cloud(x = 0f, y = y, size = size, speed = speed, alpha = alpha, color = color))
+            List(3) { index ->
+                clouds.add(Cloud(
+                    x = index * 260f,
+                    y = 0f,
+                    size = size,
+                    speed = speed,
+                    alpha = alpha,
+                    color = Color.Gray
+                ));
             }
         } else if (showClouds) {
             // When showClouds is true (and not raining), generate an initial set of normal clouds
@@ -545,7 +553,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
 
                 // Add new clouds periodically only if clouds are meant to be shown (either normal or rainy)
                 // Do not add new clouds periodically if it's raining, as they are initially generated to cover the sky.
-                if (showClouds && Random.nextFloat() < 0.02f) { // Only add new clouds if showClouds is true and not raining
+                if (showClouds && !showRain && Random.nextFloat() < 0.02f) { // Only add new clouds if showClouds is true AND not raining
                     val size = Random.nextFloat() * 40f + 30f
                     val speed = Random.nextFloat() * 50f + 20f
                     val cloudHeightInPixels = (20.0f / 24f) * size * density
@@ -563,111 +571,71 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
         }
     }
 
+    // Cloud rain
     Canvas(modifier = modifier) {
         clouds.forEach { cloud ->
-            val cloudSizePx = cloud.size * density
-            val iconGridSize = 24f // Material icons are typically based on a 24x24 grid
+            val cloudSizePx: Float = if (showRain) {
+                cloud.size
+            } else {
+                cloud.size * density
+            }
+
+            val iconGridSize = 24f
             val scaleFactor = cloudSizePx / iconGridSize
 
-            // We need to keep track of the current point for relative commands
-            var currentLocalX = 0f
-            var currentLocalY = 0f
-
             val cloudPath = Path().apply {
-                // Initial moveTo
-                val startLocalX = 19.35f * scaleFactor
-                val startLocalY = 10.04f * scaleFactor
-                moveTo(startLocalX, startLocalY)
-                currentLocalX = startLocalX
-                currentLocalY = startLocalY
+                // Shape real da nuvem (versão igual ao ícone da imagem sem chuva)
 
-                // curveTo(18.67f, 6.59f, 15.64f, 4.0f, 12.0f, 4.0f)
-                val c1x_abs1 = 18.67f * scaleFactor
-                val c1y_abs1 = 6.59f * scaleFactor
-                val c2x_abs1 = 15.64f * scaleFactor
-                val c2y_abs1 = 4.0f * scaleFactor
-                val endLocalX1 = 12.0f * scaleFactor
-                val endLocalY1 = 4.0f * scaleFactor
-                cubicTo(c1x_abs1, c1y_abs1, c2x_abs1, c2y_abs1, endLocalX1, endLocalY1)
-                currentLocalX = endLocalX1
-                currentLocalY = endLocalY1
+                moveTo(19.35f * scaleFactor, 10.04f * scaleFactor)
 
-                // curveTo(9.11f, 4.0f, 6.6f, 5.64f, 5.35f, 8.04f)
-                val c1x_abs2 = 9.11f * scaleFactor
-                val c1y_abs2 = 4.0f * scaleFactor
-                val c2x_abs2 = 6.6f * scaleFactor
-                val c2y_abs2 = 5.64f * scaleFactor
-                val endLocalX2 = 5.35f * scaleFactor
-                val endLocalY2 = 8.04f * scaleFactor
-                cubicTo(c1x_abs2, c1y_abs2, c2x_abs2, c2y_abs2, endLocalX2, endLocalY2)
-                currentLocalX = endLocalX2
-                currentLocalY = endLocalY2
-
-                // curveTo(2.34f, 8.36f, 0.0f, 10.91f, 0.0f, 14.0f)
-                val c1x_abs3 = 2.34f * scaleFactor
-                val c1y_abs3 = 8.36f * scaleFactor
-                val c2x_abs3 = 0.0f * scaleFactor
-                val c2y_abs3 = 10.91f * scaleFactor
-                val endLocalX3 = 0.0f * scaleFactor
-                val endLocalY3 = 14.0f * scaleFactor
-                cubicTo(c1x_abs3, c1y_abs3, c2x_abs3, c2y_abs3, endLocalX3, endLocalY3)
-                currentLocalX = endLocalX3
-                currentLocalY = endLocalY3
-
-                // curveToRelative(0.0f, 3.31f, 2.69f, 6.0f, 6.0f, 6.0f)
-                val dc1x_rel1 = 0.0f * scaleFactor
-                val dc1y_rel1 = 3.31f * scaleFactor
-                val dc2x_rel1 = 2.69f * scaleFactor
-                val dc2y_rel1 = 6.0f * scaleFactor
-                val dex_rel1 = 6.0f * scaleFactor
-                val dey_rel1 = 6.0f * scaleFactor
                 cubicTo(
-                    currentLocalX + dc1x_rel1, currentLocalY + dc1y_rel1,
-                    currentLocalX + dc2x_rel1, currentLocalY + dc2y_rel1,
-                    currentLocalX + dex_rel1, currentLocalY + dey_rel1
+                    18.67f * scaleFactor, 6.59f * scaleFactor,
+                    15.64f * scaleFactor, 4.0f * scaleFactor,
+                    12.0f * scaleFactor, 4.0f * scaleFactor
                 )
-                currentLocalX += dex_rel1
-                currentLocalY += dey_rel1
 
-                // horizontalLineToRelative(13.0f)
-                val dhx_rel = 13.0f * scaleFactor
-                lineTo(currentLocalX + dhx_rel, currentLocalY)
-                currentLocalX += dhx_rel
-
-                // curveToRelative(2.76f, 0.0f, 5.0f, -2.24f, 5.0f, -5.0f)
-                val dc1x_rel2 = 2.76f * scaleFactor
-                val dc1y_rel2 = 0.0f * scaleFactor
-                val dc2x_rel2 = 5.0f * scaleFactor
-                val dc2y_rel2 = -2.24f * scaleFactor
-                val dex_rel2 = 5.0f * scaleFactor
-                val dey_rel2 = -5.0f * scaleFactor
                 cubicTo(
-                    currentLocalX + dc1x_rel2, currentLocalY + dc1y_rel2,
-                    currentLocalX + dc2x_rel2, currentLocalY + dc2y_rel2,
-                    currentLocalX + dex_rel2, currentLocalY + dey_rel2
+                    9.11f * scaleFactor, 4.0f * scaleFactor,
+                    6.6f * scaleFactor, 5.64f * scaleFactor,
+                    5.35f * scaleFactor, 8.04f * scaleFactor
                 )
-                currentLocalX += dex_rel2
-                currentLocalY += dey_rel2
 
-                // curveToRelative(0.0f, -2.64f, -2.05f, -4.78f, -4.65f, -4.96f)
-                val dc1x_rel3 = 0.0f * scaleFactor
-                val dc1y_rel3 = -2.64f * scaleFactor
-                val dc2x_rel3 = -2.05f * scaleFactor
-                val dc2y_rel3 = -4.78f * scaleFactor
-                val dex_rel3 = -4.65f * scaleFactor
-                val dey_rel3 = -4.96f * scaleFactor
                 cubicTo(
-                    currentLocalX + dc1x_rel3, currentLocalY + dc1y_rel3,
-                    currentLocalX + dc2x_rel3, currentLocalY + dc2y_rel3,
-                    currentLocalX + dex_rel3, currentLocalY + dey_rel3
+                    2.34f * scaleFactor, 8.36f * scaleFactor,
+                    0.0f * scaleFactor, 10.91f * scaleFactor,
+                    0.0f * scaleFactor, 14.0f * scaleFactor
+                )
+
+                // Parte inferior correta (reta curva suave, NÃO ondulada)
+                cubicTo(
+                    0.0f * scaleFactor, 17.31f * scaleFactor,
+                    2.69f * scaleFactor, 20.0f * scaleFactor,
+                    6.0f * scaleFactor, 20.0f * scaleFactor
+                )
+
+                lineTo(18.0f * scaleFactor, 20.0f * scaleFactor)
+
+                cubicTo(
+                    21.31f * scaleFactor, 20.0f * scaleFactor,
+                    24.0f * scaleFactor, 17.31f * scaleFactor,
+                    24.0f * scaleFactor, 14.0f * scaleFactor
+                )
+
+                cubicTo(
+                    24.0f * scaleFactor, 11.03f * scaleFactor,
+                    22.05f * scaleFactor, 8.53f * scaleFactor,
+                    19.35f * scaleFactor, 10.04f * scaleFactor
                 )
 
                 close()
             }
 
-            // Apply translation when drawing the path
+            // --- Apply Rotation Here ---
+            val rotationDegrees = if (showRain) 180f else 0f // Apply 180 degrees rotation when raining
+
             withTransform({
-                translate(left = cloud.x, top = cloud.y) // Removed * density
+                translate(left = cloud.x, top = cloud.y)
+                rotate(degrees = rotationDegrees, pivot = Offset(cloudSizePx / 2f, cloudSizePx / 2.5f)) // Rotate around the center of the cloud
             }) {
                 drawPath(cloudPath, color = cloud.color, alpha = cloud.alpha)
             }
