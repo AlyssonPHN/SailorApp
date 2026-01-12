@@ -86,16 +86,21 @@ data class RainDrop(
 
 @Composable
 fun SailorScreen() {
+    var showClouds by remember { mutableStateOf(false) } // New state for clouds
+    var showSun by remember { mutableStateOf(false) } // New state for sun
+    var showRain by remember { mutableStateOf(false) } // New state for rain
+    var showMoon by remember { mutableStateOf(false) } // New state for moon
+
+    val backgroundColor = if (showMoon) Color.Black else Color(0xFF00013E) // Change background based on moon
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF00013E)) // Fundo Roxo Escuro
+            .background(backgroundColor) // Fundo Roxo Escuro ou Preto
     ) {
         var isExpanded by remember { mutableStateOf(true) }
         var hasAppeared by remember { mutableStateOf(false) }
-        var showClouds by remember { mutableStateOf(false) } // New state for clouds
-        var showSun by remember { mutableStateOf(false) } // New state for sun
-        var showRain by remember { mutableStateOf(false) } // New state for rain
+
 
         val localDensity = LocalDensity.current // Declare LocalDensity here
 
@@ -395,9 +400,30 @@ fun SailorScreen() {
                                 onClick = {
                                     isMenuExpanded = false
                                     when (icon) {
-                                        Icons.Default.Cloud -> showClouds = !showClouds
-                                        Icons.Default.WbSunny -> showSun = !showSun
-                                        Icons.Default.Grain -> showRain = !showRain // Toggle rain
+                                        Icons.Default.Cloud -> {
+                                            showClouds = !showClouds
+                                            showSun = false
+                                            showRain = false
+                                            showMoon = false
+                                        }
+                                        Icons.Default.WbSunny -> {
+                                            showSun = !showSun
+                                            showClouds = false
+                                            showRain = false
+                                            showMoon = false
+                                        }
+                                        Icons.Default.Grain -> {
+                                            showRain = !showRain // Toggle rain
+                                            showClouds = false // Clouds are handled by RainEffect
+                                            showSun = false
+                                            showMoon = false
+                                        }
+                                        Icons.Default.Brightness2 -> { // This is now for the moon
+                                            showMoon = !showMoon
+                                            showClouds = false
+                                            showSun = false
+                                            showRain = false
+                                        }
                                     }
                                 },
                                 modifier = Modifier // Removed fillMaxWidth()
@@ -458,6 +484,25 @@ fun SailorScreen() {
                 offsetY = sunOffsetY,
                 sunSize = sunSizePx,
                 color = Color(0xFFFFC107) // Amarelo para o sol
+            )
+        }
+
+        // Infinite Moon
+        if (showMoon) {
+            val moonSizeDp = 120.dp
+            val moonSizePx = with(localDensity) { moonSizeDp.toPx() }
+            val paddingDp = 40.dp
+//            val moonOffsetX = with(localDensity) { screenWidthPx - moonSizePx - paddingDp.toPx() } // Alinhado à direita com padding
+            val moonOffsetX = with(localDensity) { paddingDp.toPx() } // Alinhado à direita com padding
+            val moonOffsetY = with(localDensity) { paddingDp.toPx() } // Alinhado ao topo com padding
+            InfiniteMoon(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.TopStart),
+                offsetX = moonOffsetX,
+                offsetY = moonOffsetY,
+                moonSize = moonSizePx,
+                color = Color(0xFFCFD8DC) // Light grey for the moon
             )
         }
     }
@@ -738,5 +783,63 @@ fun InfiniteSun(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, s
                 )
             }
         }
+    }
+}
+
+@Composable
+fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, moonSize: Float, color: Color) {
+    val infiniteTransition = rememberInfiniteTransition()
+    val moonPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing), // Slower animation for moon phase
+            repeatMode = RepeatMode.Reverse // Animate back and forth
+        )
+    )
+
+    Canvas(modifier = modifier) {
+        val moonCenterX = offsetX + moonSize / 2f
+        val moonCenterY = offsetY + moonSize / 2f
+        val moonRadius = moonSize / 2f
+
+        // Draw the main moon circle
+        drawCircle(color = color, radius = moonRadius, center = Offset(moonCenterX, moonCenterY))
+
+        // Draw a subtle "crater" effect
+        drawCircle(
+            color = Color.DarkGray.copy(alpha = 0.3f),
+            radius = moonRadius * 0.2f,
+            center = Offset(moonCenterX - moonRadius * 0.3f, moonCenterY - moonRadius * 0.3f)
+        )
+        drawCircle(
+            color = Color.DarkGray.copy(alpha = 0.2f),
+            radius = moonRadius * 0.15f,
+            center = Offset(moonCenterX + moonRadius * 0.4f, moonCenterY)
+        )
+        drawCircle(
+            color = Color.DarkGray.copy(alpha = 0.25f),
+            radius = moonRadius * 0.25f,
+            center = Offset(moonCenterX, moonCenterY + moonRadius * 0.35f)
+        )
+
+        // Add a subtle glow effect (optional, can be done with a blur or a larger, softer circle underneath)
+        // For a true glow, a RenderEffect with a blur would be needed, but that's complex for a simple canvas.
+        // A simpler alternative is a slightly larger, semi-transparent circle.
+        drawCircle(
+            color = color.copy(alpha = 0.2f),
+            radius = moonRadius * 1.1f,
+            center = Offset(moonCenterX, moonCenterY)
+        )
+
+        // Simulating a crescent moon by drawing a dark circle over a part of it
+        // The `moonPhase` will control how much of the moon is "covered"
+        val crescentOffset = (moonPhase - 0.5f) * moonRadius * 0.8f // Moves from left to right
+
+        drawCircle(
+            color = Color.Black, // Match background color for "hiding" a part of the moon
+            radius = moonRadius,
+            center = Offset(moonCenterX + moonRadius * 0.6f + crescentOffset, moonCenterY)
+        )
     }
 }
