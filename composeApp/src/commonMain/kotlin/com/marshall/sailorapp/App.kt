@@ -89,7 +89,7 @@ fun SailorScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF2E003E)) // Fundo Roxo Escuro
+            .background(Color(0xFF00013E)) // Fundo Roxo Escuro
     ) {
         var isExpanded by remember { mutableStateOf(true) }
         var hasAppeared by remember { mutableStateOf(false) }
@@ -442,7 +442,7 @@ fun SailorScreen() {
         }
 
         // Infinite Sun
-        if (showSun) {
+        if (showSun && !showRain) {
             val sunSizeDp = 150.dp // Aumentado o tamanho do sol
             val sunSizePx = with(localDensity) { sunSizeDp.toPx() }
             val paddingDp = 16.dp
