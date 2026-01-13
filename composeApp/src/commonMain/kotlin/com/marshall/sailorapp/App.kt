@@ -794,7 +794,7 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(8000, easing = LinearEasing), // Slower animation for moon phase
-            repeatMode = RepeatMode.Reverse // Animate back and forth
+            repeatMode = RepeatMode.Restart // Animate from new moon to full, then restart
         )
     )
 
@@ -803,7 +803,7 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         val moonCenterY = offsetY + moonSize / 2f
         val moonRadius = moonSize / 2f
 
-        // Draw the main moon circle
+        // Draw the main moon circle (this is the full moon behind the covering dark circle)
         drawCircle(color = color, radius = moonRadius, center = Offset(moonCenterX, moonCenterY))
 
         // Draw a subtle "crater" effect
@@ -823,23 +823,26 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
             center = Offset(moonCenterX, moonCenterY + moonRadius * 0.35f)
         )
 
-        // Add a subtle glow effect (optional, can be done with a blur or a larger, softer circle underneath)
-        // For a true glow, a RenderEffect with a blur would be needed, but that's complex for a simple canvas.
-        // A simpler alternative is a slightly larger, semi-transparent circle.
+        // Add a subtle glow effect
         drawCircle(
             color = color.copy(alpha = 0.2f),
             radius = moonRadius * 1.1f,
             center = Offset(moonCenterX, moonCenterY)
         )
 
-        // Simulating a crescent moon by drawing a dark circle over a part of it
+        // Simulating the moon phase by drawing a dark circle over a part of it
         // The `moonPhase` will control how much of the moon is "covered"
-        val crescentOffset = (moonPhase - 0.5f) * moonRadius * 0.8f // Moves from left to right
+
+        // Animate the x-coordinate of the center of the covering dark circle.
+        // At moonPhase = 0f, the dark circle is centered on the moon, covering it entirely (new moon).
+        // As moonPhase progresses to 1f, the dark circle moves to the right,
+        // eventually moving completely off-screen to the right, revealing the full moon.
+        val coveringCircleCenterX = moonCenterX + moonRadius * 2.5f * moonPhase
 
         drawCircle(
             color = Color.Black, // Match background color for "hiding" a part of the moon
-            radius = moonRadius,
-            center = Offset(moonCenterX + moonRadius * 0.6f + crescentOffset, moonCenterY)
+            radius = moonRadius, // The covering circle has the same radius as the moon
+            center = Offset(coveringCircleCenterX, moonCenterY)
         )
     }
 }
