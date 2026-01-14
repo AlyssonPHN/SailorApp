@@ -1,5 +1,6 @@
 package com.marshall.sailorapp
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Canvas
@@ -47,15 +48,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.graphics.RenderEffect // Added for BlurEffect
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity // Import LocalDensity
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import kotlinx.coroutines.delay
 
 
 @Composable
@@ -95,14 +99,35 @@ data class Star(
     val isSouthernCross: Boolean = false // Flag for special handling if needed
 )
 
+enum class SkyState {
+    Day,
+    Sunset,
+    Night,
+    Sunrise
+}
+
 @Composable
 fun SailorScreen() {
     var showClouds by remember { mutableStateOf(false) } // New state for clouds
-    var showSun by remember { mutableStateOf(false) } // New state for sun
+//    var showSun by remember { mutableStateOf(false) } // New state for sun
     var showRain by remember { mutableStateOf(false) } // New state for rain
-    var showMoon by remember { mutableStateOf(false) } // New state for moon
+//    var showMoon by remember { mutableStateOf(false) } // New state for moon
 
-    val backgroundColor = if (showMoon) Color.Black else Color(0xFF00013E) // Change background based on moon
+    var skyState by remember { mutableStateOf(SkyState.Day) }
+
+
+//    val backgroundColor = if (showMoon) Color.Black else Color(0xFF00013E) // Change background based on moon
+
+    val backgroundColor by animateColorAsState(
+        targetValue = when (skyState) {
+            SkyState.Day -> Color(0xFF00013E)
+            SkyState.Sunset -> Color(0xFFFF8C42)
+            SkyState.Night -> Color.Black
+            SkyState.Sunrise -> Color(0xFFFFB347)
+        },
+        animationSpec = tween(2500)
+    )
+
 
     Box(
         modifier = Modifier
@@ -309,6 +334,119 @@ fun SailorScreen() {
         // Calculate sea level in Px here, after BoxWithConstraints has set screenHeightPx and totalMilkHeightPx
         val currentSeaLevelYPx = screenHeightPx - totalMilkHeightPx
 
+        // Position Sun
+        val sunStartY = 80f
+        val sunEndY = currentSeaLevelYPx + 200f
+
+        // Position moon
+        val moonStartY = currentSeaLevelYPx + 200f
+        val moonEndY = 80f
+
+        val sunY by animateFloatAsState(
+            targetValue = when (skyState) {
+                SkyState.Day, SkyState.Sunrise -> sunStartY
+                SkyState.Night, SkyState.Sunset -> sunEndY
+            },
+            animationSpec = tween(2600, easing = FastOutSlowInEasing)
+        )
+
+        val moonY by animateFloatAsState(
+            targetValue = when (skyState) {
+                SkyState.Night -> moonEndY        // lua no céu
+                SkyState.Sunrise -> moonStartY    // 👈 lua DESCENDO
+                SkyState.Day, SkyState.Sunset -> moonStartY
+            },
+            animationSpec = tween(2600, easing = FastOutSlowInEasing)
+        )
+
+        LaunchedEffect(skyState) {
+            when (skyState) {
+                SkyState.Sunset -> {
+                    delay(2600)
+                    skyState = SkyState.Night
+                }
+                SkyState.Sunrise -> {
+                    delay(2600)
+                    skyState = SkyState.Day
+                }
+                else -> Unit
+            }
+        }
+
+        LaunchedEffect(skyState, moonY) {
+            if (skyState == SkyState.Sunrise && moonY >= moonStartY - 1f) {
+                skyState = SkyState.Day
+            }
+        }
+
+        // Renderization Sun
+        if (skyState != SkyState.Night && !showRain) {
+            InfiniteSun(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        clip = true
+                        shape = GenericShape { size, _ ->
+                            // Área visível: tudo ACIMA do nível do mar
+                            addRect(
+                                Rect(
+                                    left = 0f,
+                                    top = 0f,
+                                    right = size.width,
+                                    bottom = currentSeaLevelYPx
+                                )
+                            )
+                        }
+                    },
+                offsetX = with(localDensity) { 16.dp.toPx() },
+                offsetY = sunY,
+                sunSize = with(localDensity) { 150.dp.toPx() },
+                color = Color(0xFFFFC107)
+            )
+        }
+
+
+        // Renderetion Moon
+        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
+            InfiniteMoon(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        clip = true
+                        shape = GenericShape { size, _ ->
+                            addRect(
+                                Rect(
+                                    left = 0f,
+                                    top = 0f,
+                                    right = size.width,
+                                    bottom = currentSeaLevelYPx
+                                )
+                            )
+                        }
+                    }
+                    .zIndex(0.2f),
+                offsetX = with(localDensity) { 40.dp.toPx() },
+                offsetY = moonY, // 👈 mesma lógica do sunY
+                moonSize = with(localDensity) { 120.dp.toPx() },
+                color = Color(0xFFCFD8DC)
+            )
+        }
+
+
+        // Renderention Stars
+        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
+            StarrySky(
+                modifier = Modifier.fillMaxSize(),
+                screenWidthPx = screenWidthPx,
+                screenHeightPx = screenHeightPx,
+                seaLevelYPx = currentSeaLevelYPx
+            )
+        }
+
+
+
+
+
         // --- Novo Menu Interativo ---
         var isMenuExpanded by remember { mutableStateOf(false) }
 
@@ -413,29 +551,40 @@ fun SailorScreen() {
                                     when (icon) {
                                         Icons.Default.Cloud -> {
                                             showClouds = !showClouds
-                                            showSun = false
-                                            showRain = false
-                                            showMoon = false
                                         }
+
                                         Icons.Default.WbSunny -> {
-                                            showSun = !showSun
+                                            when (skyState) {
+                                                SkyState.Night -> {
+                                                    skyState = SkyState.Sunrise   // lua começa a descer
+                                                }
+
+                                                SkyState.Sunset -> {
+                                                    skyState = SkyState.Day
+                                                }
+
+                                                else -> {
+                                                    skyState = SkyState.Day
+                                                }
+                                            }
+
                                             showClouds = false
-                                            showRain = false
-                                            showMoon = false
                                         }
+
+
                                         Icons.Default.Grain -> {
-                                            showRain = !showRain // Toggle rain
-                                            showClouds = false // Clouds are handled by RainEffect
-                                            showSun = false
-                                            showMoon = false
+                                            showRain = !showRain
                                         }
-                                        Icons.Default.Brightness2 -> { // This is now for the moon
-                                            showMoon = !showMoon
-                                            showClouds = false
-                                            showSun = false
-                                            showRain = false
+
+                                        Icons.Default.Brightness2 -> {
+                                            skyState = when (skyState) {
+                                                SkyState.Day -> SkyState.Sunset
+                                                SkyState.Night -> SkyState.Sunrise
+                                                else -> skyState
+                                            }
                                         }
                                     }
+
                                 },
                                 modifier = Modifier // Removed fillMaxWidth()
                             ) {
@@ -478,28 +627,11 @@ fun SailorScreen() {
             )
         }
 
-        // Infinite Sun
-        if (showSun && !showRain) {
-            val sunSizeDp = 150.dp // Aumentado o tamanho do sol
-            val sunSizePx = with(localDensity) { sunSizeDp.toPx() }
-            val paddingDp = 16.dp
-//            val sunOffsetX = with(localDensity) { (screenWidthPx - sunSizePx) / 2 } // Center horizontally
-//            val sunOffsetY = with(localDensity) { (screenHeightDp * 0.2f).toPx() } // Top part
-            val sunOffsetX = with(localDensity) { paddingDp.toPx() } // Alinhado à esquerda com padding
-            val sunOffsetY = with(localDensity) { paddingDp.toPx() } // Alinhado ao topo com padding
-            InfiniteSun(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .align(Alignment.TopStart),
-                offsetX = sunOffsetX,
-                offsetY = sunOffsetY,
-                sunSize = sunSizePx,
-                color = Color(0xFFFFC107) // Amarelo para o sol
-            )
-        }
+
 
         // Starry Sky
-        if (showMoon) {
+        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
+
             StarrySky(
                 modifier = Modifier
                     .fillMaxSize()
@@ -510,25 +642,26 @@ fun SailorScreen() {
             )
         }
 
-        // Infinite Moon
-        if (showMoon) {
-            val moonSizeDp = 120.dp
-            val moonSizePx = with(localDensity) { moonSizeDp.toPx() }
-            val paddingDp = 40.dp
-//            val moonOffsetX = with(localDensity) { screenWidthPx - moonSizePx - paddingDp.toPx() } // Alinhado à direita com padding
-            val moonOffsetX = with(localDensity) { paddingDp.toPx() } // Alinhado à direita com padding
-            val moonOffsetY = with(localDensity) { paddingDp.toPx() } // Alinhado ao topo com padding
-            InfiniteMoon(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .align(Alignment.TopStart)
-                    .zIndex(0.2f), // ZIndex slightly higher than stars
-                offsetX = moonOffsetX,
-                offsetY = moonOffsetY,
-                moonSize = moonSizePx,
-                color = Color(0xFFCFD8DC) // Light grey for the moon
-            )
-        }
+//        // Infinite Moon
+//        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
+//
+//            val moonSizeDp = 120.dp
+//            val moonSizePx = with(localDensity) { moonSizeDp.toPx() }
+//            val paddingDp = 40.dp
+////            val moonOffsetX = with(localDensity) { screenWidthPx - moonSizePx - paddingDp.toPx() } // Alinhado à direita com padding
+//            val moonOffsetX = with(localDensity) { paddingDp.toPx() } // Alinhado à direita com padding
+//            val moonOffsetY = with(localDensity) { paddingDp.toPx() } // Alinhado ao topo com padding
+//            InfiniteMoon(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .align(Alignment.TopStart)
+//                    .zIndex(0.2f), // ZIndex slightly higher than stars
+//                offsetX = moonOffsetX,
+//                offsetY = moonOffsetY,
+//                moonSize = moonSizePx,
+//                color = Color(0xFFCFD8DC) // Light grey for the moon
+//            )
+//        }
     }
 }
 
@@ -715,7 +848,12 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
 }
 
 @Composable
-fun RainEffect(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightPx: Float, seaLevelYPx: Float) {
+fun RainEffect(
+    modifier: Modifier = Modifier,
+    screenWidthPx: Float,
+    screenHeightPx: Float,
+    seaLevelYPx: Float
+) {
     val rainDrops = remember { mutableStateListOf<RainDrop>() }
     val density = LocalDensity.current.density
 
@@ -727,25 +865,41 @@ fun RainEffect(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeight
                 lastFrameTime = frameTime
                 val deltaTimeSeconds = deltaTimeNs / 1_000_000_000f
 
-                // Update existing rain drops
+                // Atualiza pingos
                 for (i in rainDrops.indices.reversed()) {
                     val drop = rainDrops[i]
                     drop.y += drop.speed * deltaTimeSeconds * density
-                    if (drop.y > seaLevelYPx) { // Remove if hits the sea
+                    if (drop.y > seaLevelYPx) {
                         rainDrops.removeAt(i)
                     }
                 }
 
-                // Add new rain drops periodically
-                if (Random.nextFloat() < 0.8f) { // High probability for dense rain
-                    val x = Random.nextFloat() * screenWidthPx
-                    val y = Random.nextFloat() * (seaLevelYPx * 0.4f) // Start from top, down to cloud level
-                    val length = Random.nextFloat() * 10f + 5f // Length between 5dp and 15dp
-                    val speed = Random.nextFloat() * 300f + 200f // Speed between 200dp/s and 500dp/s
-                    val alpha = Random.nextFloat() * 0.7f + 0.3f
-                    rainDrops.add(RainDrop(x = x, y = y, length = length, speed = speed, alpha = alpha))
+                // Gera novos pingos
+                if (Random.nextFloat() < 0.8f) {
+                    rainDrops.add(
+                        RainDrop(
+                            x = Random.nextFloat() * screenWidthPx,
+                            y = Random.nextFloat() * (seaLevelYPx * 0.4f),
+                            length = Random.nextFloat() * 12f + 8f,
+                            speed = Random.nextFloat() * 400f + 300f,
+                            alpha = Random.nextFloat() * 0.6f + 0.4f
+                        )
+                    )
                 }
             }
+        }
+    }
+
+    // 🔥 ISSO É O QUE ESTAVA FALTANDO
+    Canvas(modifier = modifier.fillMaxSize()) {
+        rainDrops.forEach { drop ->
+            drawLine(
+                color = Color.White.copy(alpha = drop.alpha),
+                start = Offset(drop.x, drop.y),
+                end = Offset(drop.x, drop.y + drop.length),
+                strokeWidth = 2f,
+                cap = StrokeCap.Round
+            )
         }
     }
 }
