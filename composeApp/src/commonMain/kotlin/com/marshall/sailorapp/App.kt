@@ -76,7 +76,8 @@ data class Cloud(
     val size: Float,
     val speed: Float,
     val alpha: Float,
-    val color: Color // Add color property
+    val color: Color, // Add color property
+    val isRainCloud: Boolean
 )
 
 // New data class for RainDrop
@@ -554,17 +555,17 @@ fun SailorScreen() {
                                         }
 
                                         Icons.Default.WbSunny -> {
-                                            when (skyState) {
+                                            skyState = when (skyState) {
                                                 SkyState.Night -> {
-                                                    skyState = SkyState.Sunrise   // lua começa a descer
+                                                    SkyState.Sunrise   // lua começa a descer
                                                 }
 
                                                 SkyState.Sunset -> {
-                                                    skyState = SkyState.Day
+                                                    SkyState.Day
                                                 }
 
                                                 else -> {
-                                                    skyState = SkyState.Day
+                                                    SkyState.Day
                                                 }
                                             }
 
@@ -608,7 +609,7 @@ fun SailorScreen() {
         if (showClouds || showRain) { // Show clouds if either showClouds or showRain is true
             InfiniteClouds(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxSize().zIndex(0.3f)
                     .align(Alignment.TopStart),
                 screenWidth = screenWidthPx,
                 showRain = showRain, // Pass new state
@@ -620,14 +621,12 @@ fun SailorScreen() {
         // Rain Effect
         if (showRain) {
             RainEffect(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().zIndex(0.6f),
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 seaLevelYPx = currentSeaLevelYPx
             )
         }
-
-
 
         // Starry Sky
         if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
@@ -635,7 +634,7 @@ fun SailorScreen() {
             StarrySky(
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(0.1f), // Behind the moon, but above background
+                    .zIndex(0.2f), // Behind the moon, but above background
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 seaLevelYPx = currentSeaLevelYPx // Pass sea level to StarrySky
@@ -710,7 +709,8 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                     size = size,
                     speed = speed,
                     alpha = alpha,
-                    color = color
+                    color = color,
+                    showRain
                 ));
             }
         } else if (showClouds) {
@@ -726,7 +726,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position
                 val alpha = Random.nextFloat() * 0.4f + 0.3f
                 val color = Color.White.copy(alpha = alpha)
-                clouds.add(Cloud(x = Random.nextFloat() * screenWidth, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Position them anywhere on screen
+                clouds.add(Cloud(x = Random.nextFloat() * screenWidth, y = y, size = size, speed = speed, alpha = alpha, color = color, showRain)) // Position them anywhere on screen
             }
         }
     }
@@ -767,7 +767,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                     val alpha = Random.nextFloat() * 0.4f + 0.3f
                     val color = Color.White.copy(alpha = alpha)
 
-                    clouds.add(Cloud(x = screenWidth + size * density * 2, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Start from right, adjusted for density
+                    clouds.add(Cloud(x = screenWidth + size * density * 2, y = y, size = size, speed = speed, alpha = alpha, color = color, showRain)) // Start from right, adjusted for density
                 }
             }
         }
@@ -832,17 +832,28 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 close()
             }
 
-            // --- Apply Rotation Here ---
-            val rotationDegrees = if (showRain) 180f else 0f // Apply 180 degrees rotation when raining
-            val alpha = if (showRain) .95f else cloud.alpha // Reduce alpha when raining
+            val isRainCloud = showRain && cloud.isRainCloud // 👈 flag da nuvem
 
+            val rotationDegrees = if (isRainCloud) 180f else 0f
+            val alpha = if (isRainCloud) 0.95f else cloud.alpha
 
             withTransform({
                 translate(left = cloud.x, top = cloud.y)
-                rotate(degrees = rotationDegrees, pivot = Offset(cloudSizePx / 2f, cloudSizePx / 2.5f)) // Rotate around the center of the cloud
+
+                if (rotationDegrees != 0f) {
+                    rotate(
+                        degrees = rotationDegrees,
+                        pivot = Offset(cloudSizePx / 2f, cloudSizePx / 2.5f)
+                    )
+                }
             }) {
-                drawPath(cloudPath, color = cloud.color, alpha = alpha)
+                drawPath(
+                    path = cloudPath,
+                    color = cloud.color,
+                    alpha = alpha
+                )
             }
+
         }
     }
 }
@@ -1005,11 +1016,16 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         // eventually moving completely off-screen to the right, revealing the full moon.
         val coveringCircleCenterX = moonCenterX + moonRadius * 2.5f * moonPhase.value
 
-        drawCircle(
-            color = Color.Black, // Match background color for \"hiding\" a part of the moon
-            radius = moonRadius, // The covering circle has the same radius as the moon
-            center = Offset(coveringCircleCenterX, moonCenterY)
-        )
+        if (moonPhase.value < 0.98f) {
+            val coveringCircleCenterX =
+                moonCenterX + moonRadius * 2.5f * moonPhase.value
+
+            drawCircle(
+                color = Color.Black,
+                radius = moonRadius,
+                center = Offset(coveringCircleCenterX, moonCenterY)
+            )
+        }
     }
 }
 
