@@ -1054,7 +1054,7 @@ fun StarrySky(
                         y = Random.nextFloat() * maxY,
                         radius = Random.nextFloat() * 1.5f + 1f,
                         phase = Random.nextFloat() * (2f * PI.toFloat()),
-                        speed = Random.nextFloat() * 0.6f + 0.2f, // ⭐ slow
+                        speed = Random.nextFloat() * 0.6f + 0.2f, // star slow
                         amplitude = Random.nextFloat() * 0.15f + 0.05f,
                         baseAlpha = Random.nextFloat() * 0.3f + 0.55f
                     )
