@@ -505,7 +505,8 @@ fun SailorScreen() {
                     .fillMaxSize()
                     .zIndex(0.1f), // Behind the moon, but above background
                 screenWidthPx = screenWidthPx,
-                screenHeightPx = screenHeightPx
+                screenHeightPx = screenHeightPx,
+                seaLevelYPx = currentSeaLevelYPx // Pass sea level to StarrySky
             )
         }
 
@@ -747,20 +748,6 @@ fun RainEffect(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeight
             }
         }
     }
-
-    Canvas(modifier = modifier) {
-        rainDrops.forEach { drop ->
-            val start = Offset(drop.x, drop.y)
-            val end = Offset(drop.x, drop.y + drop.length * density)
-            drawLine(
-                color = Color.White.copy(alpha = drop.alpha),
-                start = start,
-                end = end,
-                strokeWidth = 1.5f * density, // Thin rain drops
-                cap = StrokeCap.Round
-            )
-        }
-    }
 }
 
 @Composable
@@ -873,13 +860,17 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
 }
 
 @Composable
-fun StarrySky(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightPx: Float) {
+fun StarrySky(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightPx: Float, seaLevelYPx: Float) {
     val stars = remember { mutableStateListOf<Star>() }
     val infiniteTransition = rememberInfiniteTransition()
+    val density = LocalDensity.current.density // Get density in composable scope
 
-    LaunchedEffect(screenWidthPx, screenHeightPx) {
+    LaunchedEffect(screenWidthPx, screenHeightPx, seaLevelYPx, density) { // Added density to dependencies
         if (screenWidthPx > 0 && screenHeightPx > 0) {
-            stars.clear() // Clear existing stars on screen size change
+            stars.clear() // Clear existing stars on screen size or sea level change
+
+            val starPaddingFromSeaPx = 140.dp.value * density // Use density directly
+            val maxStarY = (seaLevelYPx - starPaddingFromSeaPx).coerceAtLeast(0f) // Max Y coordinate for a star
 
             // Generate random stars
             repeat(100) { // Number of random stars
@@ -887,7 +878,7 @@ fun StarrySky(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightP
                     Star(
                         id = it,
                         x = Random.nextFloat() * screenWidthPx,
-                        y = Random.nextFloat() * screenHeightPx * 0.7f, // Limit stars to upper 70% of screen to avoid sea
+                        y = Random.nextFloat() * maxStarY, // Constrain Y to be above the sea
                         size = Random.nextFloat() * 2f + 1f, // Size between 1dp and 3dp
                         twinkleDuration = Random.nextInt(2000, 4000),
                         twinkleOffset = Random.nextInt(0, 2000)
@@ -899,20 +890,27 @@ fun StarrySky(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightP
             // Relative positions for the 5 stars.
             // Let\'s place the constellation generally in the top-right quadrant
             val constellationBaseX = screenWidthPx * 0.7f
-            val constellationBaseY = screenHeightPx * 0.2f
+            val initialConstellationBaseY = screenHeightPx * 0.2f
+
+            // Ensure constellationBaseY is also below maxStarY, considering the constellation's height
             val scale = 20f // Scale factor for the constellation\'s size
+            val constellationHeight = scale * 2.5f // Approximate height of the constellation
+            val adjustedConstellationBaseY = initialConstellationBaseY.coerceAtMost(maxStarY - constellationHeight)
+            // Ensure it\'s not negative
+            val finalConstellationBaseY = adjustedConstellationBaseY.coerceAtLeast(0f)
+
 
             val southernCrossStars = listOf(
                 // Alpha Crucis (bottom)
-                Star(id = stars.size, x = constellationBaseX, y = constellationBaseY + (scale * 2), size = 3.5f, twinkleDuration = 3000, twinkleOffset = 0, isSouthernCross = true),
+                Star(id = stars.size, x = constellationBaseX, y = finalConstellationBaseY + (scale * 2), size = 3.5f, twinkleDuration = 3000, twinkleOffset = 0, isSouthernCross = true),
                 // Beta Crucis (left)
-                Star(id = stars.size + 1, x = constellationBaseX - scale, y = constellationBaseY, size = 3.0f, twinkleDuration = 3200, twinkleOffset = 400, isSouthernCross = true),
+                Star(id = stars.size + 1, x = constellationBaseX - scale, y = finalConstellationBaseY, size = 3.0f, twinkleDuration = 3200, twinkleOffset = 400, isSouthernCross = true),
                 // Gamma Crucis (top)
-                Star(id = stars.size + 2, x = constellationBaseX, y = constellationBaseY - scale, size = 3.5f, twinkleDuration = 2800, twinkleOffset = 800, isSouthernCross = true),
+                Star(id = stars.size + 2, x = constellationBaseX, y = finalConstellationBaseY - scale, size = 3.5f, twinkleDuration = 2800, twinkleOffset = 800, isSouthernCross = true),
                 // Delta Crucis (right)
-                Star(id = stars.size + 3, x = constellationBaseX + scale, y = constellationBaseY + scale, size = 2.5f, twinkleDuration = 3500, twinkleOffset = 1200, isSouthernCross = true),
+                Star(id = stars.size + 3, x = constellationBaseX + scale, y = finalConstellationBaseY + scale, size = 2.5f, twinkleDuration = 3500, twinkleOffset = 1200, isSouthernCross = true),
                 // Epsilon Crucis (fainter, below Delta)
-                Star(id = stars.size + 4, x = constellationBaseX + scale * 0.5f, y = constellationBaseY + scale * 2.5f, size = 2.0f, twinkleDuration = 4000, twinkleOffset = 1600, isSouthernCross = true)
+                Star(id = stars.size + 4, x = constellationBaseX + scale * 0.5f, y = finalConstellationBaseY + scale * 2.5f, size = 2.0f, twinkleDuration = 4000, twinkleOffset = 1600, isSouthernCross = true)
             )
             stars.addAll(southernCrossStars)
         }
