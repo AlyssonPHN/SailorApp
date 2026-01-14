@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import kotlinx.coroutines.delay
 
 
+
 @Composable
 @Preview
 fun App() {
@@ -91,14 +92,15 @@ data class RainDrop(
 
 // New data class for Star
 data class Star(
-    val id: Int, // Unique ID for each star to help with animations
     val x: Float,
     val y: Float,
-    val size: Float,
-    val twinkleDuration: Int, // Duration of one twinkle cycle
-    val twinkleOffset: Int,   // Offset to stagger twinkling
-    val isSouthernCross: Boolean = false // Flag for special handling if needed
+    val radius: Float,
+    val phase: Float,
+    val speed: Float,
+    val amplitude: Float,
+    val baseAlpha: Float
 )
+
 
 enum class SkyState {
     Day,
@@ -1030,92 +1032,52 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
 }
 
 @Composable
-fun StarrySky(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightPx: Float, seaLevelYPx: Float) {
-    val stars = remember { mutableStateListOf<Star>() }
-    val infiniteTransition = rememberInfiniteTransition()
-    val density = LocalDensity.current.density // Get density in composable scope
+fun StarrySky(
+    modifier: Modifier = Modifier,
+    screenWidthPx: Float,
+    screenHeightPx: Float,
+    seaLevelYPx: Float
+) {
+    val density = LocalDensity.current.density
 
-    LaunchedEffect(screenWidthPx, screenHeightPx, seaLevelYPx, density) { // Added density to dependencies
-        if (screenWidthPx > 0 && screenHeightPx > 0) {
-            stars.clear() // Clear existing stars on screen size or sea level change
+    // Estrelas são criadas UMA VEZ
+    val stars = remember(screenWidthPx, screenHeightPx, seaLevelYPx) {
+        if (screenWidthPx == 0f || screenHeightPx == 0f) return@remember emptyList()
 
-            val starPaddingFromSeaPx = 140.dp.value * density // Use density directly
-            val maxStarY = (seaLevelYPx - starPaddingFromSeaPx).coerceAtLeast(0f) // Max Y coordinate for a star
+        val maxY = (seaLevelYPx - 140.dp.value * density).coerceAtLeast(0f)
 
-            // Generate random stars
-            repeat(100) { // Number of random stars
-                stars.add(
+        buildList {
+            repeat(100) {
+                add(
                     Star(
-                        id = it,
                         x = Random.nextFloat() * screenWidthPx,
-                        y = Random.nextFloat() * maxStarY, // Constrain Y to be above the sea
-                        size = Random.nextFloat() * 2f + 1f, // Size between 1dp and 3dp
-                        twinkleDuration = Random.nextInt(2000, 4000),
-                        twinkleOffset = Random.nextInt(0, 2000)
+                        y = Random.nextFloat() * maxY,
+                        radius = Random.nextFloat() * 1.5f + 1f,
+                        phase = Random.nextFloat() * (2f * PI.toFloat()),
+                        speed = Random.nextFloat() * 0.6f + 0.2f, // ⭐ slow
+                        amplitude = Random.nextFloat() * 0.15f + 0.05f,
+                        baseAlpha = Random.nextFloat() * 0.3f + 0.55f
                     )
                 )
-            }
-
-            // Generate Cruzeiro do Sul (Southern Cross)
-            // Relative positions for the 5 stars.
-            // Let\'s place the constellation generally in the top-right quadrant
-            val constellationBaseX = screenWidthPx * 0.7f
-            val initialConstellationBaseY = screenHeightPx * 0.2f
-
-            // Ensure constellationBaseY is also below maxStarY, considering the constellation's height
-            val scale = 20f // Scale factor for the constellation\'s size
-            val constellationHeight = scale * 2.5f // Approximate height of the constellation
-            val adjustedConstellationBaseY = initialConstellationBaseY.coerceAtMost(maxStarY - constellationHeight)
-            // Ensure it\'s not negative
-            val finalConstellationBaseY = adjustedConstellationBaseY.coerceAtLeast(0f)
-
-
-            val southernCrossStars = listOf(
-                // Alpha Crucis (bottom)
-                Star(id = stars.size, x = constellationBaseX, y = finalConstellationBaseY + (scale * 2), size = 3.5f, twinkleDuration = 3000, twinkleOffset = 0, isSouthernCross = true),
-                // Beta Crucis (left)
-                Star(id = stars.size + 1, x = constellationBaseX - scale, y = finalConstellationBaseY, size = 3.0f, twinkleDuration = 3200, twinkleOffset = 400, isSouthernCross = true),
-                // Gamma Crucis (top)
-                Star(id = stars.size + 2, x = constellationBaseX, y = finalConstellationBaseY - scale, size = 3.5f, twinkleDuration = 2800, twinkleOffset = 800, isSouthernCross = true),
-                // Delta Crucis (right)
-                Star(id = stars.size + 3, x = constellationBaseX + scale, y = finalConstellationBaseY + scale, size = 2.5f, twinkleDuration = 3500, twinkleOffset = 1200, isSouthernCross = true),
-                // Epsilon Crucis (fainter, below Delta)
-                Star(id = stars.size + 4, x = constellationBaseX + scale * 0.5f, y = finalConstellationBaseY + scale * 2.5f, size = 2.0f, twinkleDuration = 4000, twinkleOffset = 1600, isSouthernCross = true)
-            )
-            stars.addAll(southernCrossStars)
-        }
-    }
-
-    // Map to hold the animated alpha state for each star
-    val starAlphaStates = remember { mutableStateMapOf<Int, State<Float>>() }
-
-    // Animate each star individually in a composable context
-    stars.forEach { star ->
-        key(star.id) { // Use key to provide a unique composable scope for each star
-            val alpha = infiniteTransition.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(star.twinkleDuration / 2, easing = LinearEasing, delayMillis = star.twinkleOffset),
-                    repeatMode = RepeatMode.Reverse
-                )
-            )
-            // Store the State<Float> in the map
-            DisposableEffect(star.id) { // Use DisposableEffect to manage map entries
-                starAlphaStates[star.id] = alpha
-                onDispose { // Remove from map when the star is no longer composed
-                    starAlphaStates.remove(star.id)
-                }
             }
         }
     }
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        val time = System.nanoTime() / 1_000_000_000f
+
+
         stars.forEach { star ->
-            val alpha = starAlphaStates[star.id]?.value ?: 0f // Safely get the animated alpha value
+            val twinkle =
+                kotlin.math.sin(time * star.speed + star.phase).toFloat() * star.amplitude
+
+
+            val alpha = (star.baseAlpha + twinkle)
+                .coerceIn(0.4f, 0.9f)
+
             drawCircle(
                 color = Color.White,
-                radius = star.size,
+                radius = star.radius,
                 center = Offset(star.x, star.y),
                 alpha = alpha
             )
