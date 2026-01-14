@@ -84,6 +84,17 @@ data class RainDrop(
     val alpha: Float
 )
 
+// New data class for Star
+data class Star(
+    val id: Int, // Unique ID for each star to help with animations
+    val x: Float,
+    val y: Float,
+    val size: Float,
+    val twinkleDuration: Int, // Duration of one twinkle cycle
+    val twinkleOffset: Int,   // Offset to stagger twinkling
+    val isSouthernCross: Boolean = false // Flag for special handling if needed
+)
+
 @Composable
 fun SailorScreen() {
     var showClouds by remember { mutableStateOf(false) } // New state for clouds
@@ -230,7 +241,7 @@ fun SailorScreen() {
                     val shipX = width / 2
                     // Usando a onda da frente para posicionar o navio
                     val waveXFactor = (shipX / width) * 2.5 * PI + phase.toDouble()
-                    // Subtraindo um valor para elevar o navio acima da linha d'água
+                    // Subtraindo um valor para elevar o navio acima da linha d\'água
                     val shipY = midLineY + (waveAmplitude.toPx() * sin(waveXFactor)).toFloat() - 15.dp.toPx()
 
                     // Calculando a inclinação (derivada aproximada) para o balanço
@@ -330,7 +341,7 @@ fun SailorScreen() {
         val iconSize = 24.dp
         val centerCircleSize = 48.dp
 
-        // Removed LocalDensity.current from here, it's now at the top of SailorScreen
+        // Removed LocalDensity.current from here, it\'s now at the top of SailorScreen
 
         Box(
             modifier = Modifier
@@ -487,6 +498,17 @@ fun SailorScreen() {
             )
         }
 
+        // Starry Sky
+        if (showMoon) {
+            StarrySky(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(0.1f), // Behind the moon, but above background
+                screenWidthPx = screenWidthPx,
+                screenHeightPx = screenHeightPx
+            )
+        }
+
         // Infinite Moon
         if (showMoon) {
             val moonSizeDp = 120.dp
@@ -498,7 +520,8 @@ fun SailorScreen() {
             InfiniteMoon(
                 modifier = Modifier
                     .fillMaxSize()
-                    .align(Alignment.TopStart),
+                    .align(Alignment.TopStart)
+                    .zIndex(0.2f), // ZIndex slightly higher than stars
                 offsetX = moonOffsetX,
                 offsetY = moonOffsetY,
                 moonSize = moonSizePx,
@@ -513,10 +536,10 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
     val clouds = remember { mutableStateListOf<Cloud>() }
     val density = LocalDensity.current.density
 
-    // Define constants for ship's dimensions to calculate minimum cloud height
+    // Define constants for ship\'s dimensions to calculate minimum cloud height
     val shipPivotToWaveTopOffsetDp = 15.dp
-    val shipSailHeightAbstract = 32f * 4.5f // Abstract units from ship's local coordinates, scaled
-    val cloudClearancePaddingDp = 0.dp // Padding between the cloud bottom and ship's highest point
+    val shipSailHeightAbstract = 32f * 4.5f // Abstract units from ship\'s local coordinates, scaled
+    val cloudClearancePaddingDp = 0.dp // Padding between the cloud bottom and ship\'s highest point
 
     // Calculate these once per recomposition if dependencies change
     val shipPivotToWaveTopOffsetPx = with(LocalDensity.current) { shipPivotToWaveTopOffsetDp.toPx() }
@@ -524,7 +547,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
     val cloudClearancePaddingPx = with(LocalDensity.current) { cloudClearancePaddingDp.toPx() }
 
     // This is the global Y of the absolute highest point of the ship (top of sail)
-    // The ship's pivot can be at `seaLevelYPx - shipPivotToWaveTopOffsetPx` (highest point of the pivot on screen)
+    // The ship\'s pivot can be at `seaLevelYPx - shipPivotToWaveTopOffsetPx` (highest point of the pivot on screen)
     // The sail goes `shipSailHeightPx` upwards from there.
     val actualShipHighestPointYPx = seaLevelYPx - shipPivotToWaveTopOffsetPx - shipSailHeightPx
 
@@ -541,7 +564,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
             val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
 
             // For a single large cloud, we can fix its Y or make it slightly random within a smaller range.
-            // Let's make it fill more of the top sky by picking a y value lower than usual
+            // Let\'s make it fill more of the top sky by picking a y value lower than usual
             val y = Random.nextFloat() * (maxCloudTopYAllowed * 0.7f).coerceAtLeast(0f)
             val alpha = Random.nextFloat() * 0.4f + 0.6f // Denser and more opaque
             val color = Color.Gray // Grayish clouds for rain
@@ -566,7 +589,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 // Ensure clouds are above the ship
                 val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
 
-                val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f)
+                val y = Random.nextFloat() * maxCloudTopYAllowed.coerceAtLeast(0f) // Y position
                 val alpha = Random.nextFloat() * 0.4f + 0.3f
                 val color = Color.White.copy(alpha = alpha)
                 clouds.add(Cloud(x = Random.nextFloat() * screenWidth, y = y, size = size, speed = speed, alpha = alpha, color = color)) // Position them anywhere on screen
@@ -585,7 +608,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 // Update existing clouds
                 for (i in clouds.indices.reversed()) {
                     val cloud = clouds[i]
-                    if (!showRain) { // Only move clouds if it's NOT raining
+                    if (!showRain) { // Only move clouds if it\'s NOT raining
                         cloud.x -= cloud.speed * deltaTimeSeconds * density // Normal clouds move right to left
                         // Remove if off-screen to the left, adjusted for density.
                         // For rain, clouds are static and not removed this way.
@@ -597,7 +620,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                 }
 
                 // Add new clouds periodically only if clouds are meant to be shown (either normal or rainy)
-                // Do not add new clouds periodically if it's raining, as they are initially generated to cover the sky.
+                // Do not add new clouds periodically if it\'s raining, as they are initially generated to cover the sky.
                 if (showClouds && !showRain && Random.nextFloat() < 0.02f) { // Only add new clouds if showClouds is true AND not raining
                     val size = Random.nextFloat() * 40f + 30f
                     val speed = Random.nextFloat() * 50f + 20f
@@ -808,7 +831,7 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         // Draw the main moon circle (this is the full moon behind the covering dark circle)
         drawCircle(color = color, radius = moonRadius, center = Offset(moonCenterX, moonCenterY))
 
-        // Draw a subtle "crater" effect
+        // Draw a subtle \"crater\" effect
         drawCircle(
             color = Color.DarkGray.copy(alpha = 0.3f),
             radius = moonRadius * 0.2f,
@@ -833,7 +856,7 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         )
 
         // Simulating the moon phase by drawing a dark circle over a part of it
-        // The `moonPhase` will control how much of the moon is "covered"
+        // The `moonPhase` will control how much of the moon is \"covered\"
 
         // Animate the x-coordinate of the center of the covering dark circle.
         // At moonPhase = 0f, the dark circle is centered on the moon, covering it entirely (new moon).
@@ -842,9 +865,92 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         val coveringCircleCenterX = moonCenterX + moonRadius * 2.5f * moonPhase.value
 
         drawCircle(
-            color = Color.Black, // Match background color for "hiding" a part of the moon
+            color = Color.Black, // Match background color for \"hiding\" a part of the moon
             radius = moonRadius, // The covering circle has the same radius as the moon
             center = Offset(coveringCircleCenterX, moonCenterY)
         )
+    }
+}
+
+@Composable
+fun StarrySky(modifier: Modifier = Modifier, screenWidthPx: Float, screenHeightPx: Float) {
+    val stars = remember { mutableStateListOf<Star>() }
+    val infiniteTransition = rememberInfiniteTransition()
+
+    LaunchedEffect(screenWidthPx, screenHeightPx) {
+        if (screenWidthPx > 0 && screenHeightPx > 0) {
+            stars.clear() // Clear existing stars on screen size change
+
+            // Generate random stars
+            repeat(100) { // Number of random stars
+                stars.add(
+                    Star(
+                        id = it,
+                        x = Random.nextFloat() * screenWidthPx,
+                        y = Random.nextFloat() * screenHeightPx * 0.7f, // Limit stars to upper 70% of screen to avoid sea
+                        size = Random.nextFloat() * 2f + 1f, // Size between 1dp and 3dp
+                        twinkleDuration = Random.nextInt(2000, 4000),
+                        twinkleOffset = Random.nextInt(0, 2000)
+                    )
+                )
+            }
+
+            // Generate Cruzeiro do Sul (Southern Cross)
+            // Relative positions for the 5 stars.
+            // Let\'s place the constellation generally in the top-right quadrant
+            val constellationBaseX = screenWidthPx * 0.7f
+            val constellationBaseY = screenHeightPx * 0.2f
+            val scale = 20f // Scale factor for the constellation\'s size
+
+            val southernCrossStars = listOf(
+                // Alpha Crucis (bottom)
+                Star(id = stars.size, x = constellationBaseX, y = constellationBaseY + (scale * 2), size = 3.5f, twinkleDuration = 3000, twinkleOffset = 0, isSouthernCross = true),
+                // Beta Crucis (left)
+                Star(id = stars.size + 1, x = constellationBaseX - scale, y = constellationBaseY, size = 3.0f, twinkleDuration = 3200, twinkleOffset = 400, isSouthernCross = true),
+                // Gamma Crucis (top)
+                Star(id = stars.size + 2, x = constellationBaseX, y = constellationBaseY - scale, size = 3.5f, twinkleDuration = 2800, twinkleOffset = 800, isSouthernCross = true),
+                // Delta Crucis (right)
+                Star(id = stars.size + 3, x = constellationBaseX + scale, y = constellationBaseY + scale, size = 2.5f, twinkleDuration = 3500, twinkleOffset = 1200, isSouthernCross = true),
+                // Epsilon Crucis (fainter, below Delta)
+                Star(id = stars.size + 4, x = constellationBaseX + scale * 0.5f, y = constellationBaseY + scale * 2.5f, size = 2.0f, twinkleDuration = 4000, twinkleOffset = 1600, isSouthernCross = true)
+            )
+            stars.addAll(southernCrossStars)
+        }
+    }
+
+    // Map to hold the animated alpha state for each star
+    val starAlphaStates = remember { mutableStateMapOf<Int, State<Float>>() }
+
+    // Animate each star individually in a composable context
+    stars.forEach { star ->
+        key(star.id) { // Use key to provide a unique composable scope for each star
+            val alpha = infiniteTransition.animateFloat(
+                initialValue = 0.3f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(star.twinkleDuration / 2, easing = LinearEasing, delayMillis = star.twinkleOffset),
+                    repeatMode = RepeatMode.Reverse
+                )
+            )
+            // Store the State<Float> in the map
+            DisposableEffect(star.id) { // Use DisposableEffect to manage map entries
+                starAlphaStates[star.id] = alpha
+                onDispose { // Remove from map when the star is no longer composed
+                    starAlphaStates.remove(star.id)
+                }
+            }
+        }
+    }
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        stars.forEach { star ->
+            val alpha = starAlphaStates[star.id]?.value ?: 0f // Safely get the animated alpha value
+            drawCircle(
+                color = Color.White,
+                radius = star.size,
+                center = Offset(star.x, star.y),
+                alpha = alpha
+            )
+        }
     }
 }
