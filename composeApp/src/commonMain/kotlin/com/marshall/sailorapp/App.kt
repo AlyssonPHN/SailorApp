@@ -788,15 +788,17 @@ fun InfiniteSun(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, s
 
 @Composable
 fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, moonSize: Float, color: Color) {
-    val infiniteTransition = rememberInfiniteTransition()
-    val moonPhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(8000, easing = LinearEasing), // Slower animation for moon phase
-            repeatMode = RepeatMode.Restart // Animate from new moon to full, then restart
+    val moonPhase = remember { Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+        moonPhase.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = 8000,
+                easing = LinearEasing
+            )
         )
-    )
+    }
 
     Canvas(modifier = modifier) {
         val moonCenterX = offsetX + moonSize / 2f
@@ -837,7 +839,7 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         // At moonPhase = 0f, the dark circle is centered on the moon, covering it entirely (new moon).
         // As moonPhase progresses to 1f, the dark circle moves to the right,
         // eventually moving completely off-screen to the right, revealing the full moon.
-        val coveringCircleCenterX = moonCenterX + moonRadius * 2.5f * moonPhase
+        val coveringCircleCenterX = moonCenterX + moonRadius * 2.5f * moonPhase.value
 
         drawCircle(
             color = Color.Black, // Match background color for "hiding" a part of the moon
