@@ -1,6 +1,6 @@
 package com.marshall.sailorapp
 
-import androidx.compose.animation.animateColorAsState
+
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Canvas
@@ -18,9 +18,9 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.PI
-import kotlin.math.atan2
+
 import kotlin.math.cos
-import kotlin.math.max
+
 import kotlin.math.sin
 import kotlin.math.abs
 import kotlin.math.roundToInt // Import added for roundToInt
@@ -55,6 +55,7 @@ import com.marshall.sailorapp.model.Cloud
 import com.marshall.sailorapp.model.RainDrop
 import com.marshall.sailorapp.model.SkyState
 import com.marshall.sailorapp.model.Star
+import com.marshall.sailorapp.ui.components.Waves
 
 
 
@@ -161,119 +162,15 @@ fun SailorScreen() {
                     totalMilkHeightPx = with(localDensity) { totalMilkHeight.toPx() }
                 }
 
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(totalMilkHeight)
-                        .align(Alignment.BottomCenter)
-                        .clickable { isExpanded = !isExpanded }
-                        .zIndex(0.5f) // Added zIndex here
-                ) {
-                    val width = size.width
-                    val height = size.height
-
-                    // Aplicamos a rotação do dispositivo a todo o desenho
-                    withTransform({
-                        rotate(degrees = -rotation, pivot = Offset(width / 2, height / 2))
-                        scale(scaleX = 1.2f, scaleY = 1.2f, pivot = Offset(width / 2, height / 2))
-                    }) {
-
-                        // O nível médio da superfície do leite
-                        val midLineY = waveAmplitude.toPx()
-
-                        // Definindo limites de desenho expandidos para cobrir a tela ao rotacionar
-                        // Calculamos uma largura que cubra a diagonal com folga
-                        val drawRange = max(width, height) * 4f
-                        val startX = (width - drawRange) / 2
-                        val endX = startX + drawRange
-
-                        // Onda de trás (Sombra/Mais escura para dar profundidade)
-                        val pathBack = Path()
-                        pathBack.moveTo(startX, height + 4000f) // Começa bem embaixo
-                        pathBack.lineTo(startX, midLineY) // Sobe até o inicio da onda
-
-                        // Loop estendido
-                        var x = startX
-                        while (x <= endX) {
-                            // Fase deslocada e frequência um pouco diferente
-                            val sine = sin((x / width) * 4 * PI + phase.toDouble() + 1.0).toFloat()
-                            val yPos = midLineY + (waveAmplitude.toPx() * 0.7f * sine)
-                            pathBack.lineTo(x, yPos)
-                            x += 10f
-                        }
-                        pathBack.lineTo(endX, midLineY)
-                        pathBack.lineTo(endX, height + 4000f)
-                        pathBack.close()
-
-                        drawPath(pathBack, color = Color(0xFF4FC3F7)) // Azul claro
-
-                        // --- Navio ---
-                        val shipX = width / 2
-                        // Usando a onda da frente para posicionar o navio
-                        val waveXFactor = (shipX / width) * 2.5 * PI + phase.toDouble()
-                        // Subtraindo um valor para elevar o navio acima da linha d\'água
-                        val shipY = midLineY + (waveAmplitude.toPx() * sin(waveXFactor)).toFloat() - 15.dp.toPx()
-
-                        // Calculando a inclinação (derivada aproximada) para o balanço
-                        val delta = 5f
-                        val waveNextXFactor = ((shipX + delta) / width) * 2.5 * PI + phase.toDouble()
-                        val wavePrevXFactor = ((shipX - delta) / width) * 2.5 * PI + phase.toDouble()
-
-                        val yNext = midLineY + (waveAmplitude.toPx() * sin(waveNextXFactor)).toFloat()
-                        val yPrev = midLineY + (waveAmplitude.toPx() * sin(wavePrevXFactor)).toFloat()
-
-                        val angle = atan2((yNext - yPrev).toDouble(), (2 * delta).toDouble()) * (180 / PI)
-
-                        withTransform({
-                            translate(left = shipX, top = shipY)
-                            rotate(degrees = angle.toFloat(), pivot = Offset.Zero)
-                            scale(scaleX = 4.5f, scaleY = 4.5f, pivot = Offset.Zero)
-                        }) {
-                            // Casco do navio de papel (Branco)
-                            val hullPath = Path()
-                            hullPath.moveTo(-40f, -10f) // Ponta esquerda
-                            hullPath.lineTo(40f, -10f)  // Ponta direita
-                            hullPath.lineTo(20f, 15f)   // Base direita
-                            hullPath.lineTo(-20f, 15f)  // Base esquerda
-                            hullPath.close()
-                            drawPath(hullPath, color = Color.White)
-
-                            // Vela Principal (Azul Escuro)
-                            val sailPath = Path()
-                            sailPath.moveTo(0f, -10f)
-                            sailPath.lineTo(0f, -55f) // Topo
-                            sailPath.lineTo(30f, -10f)
-                            sailPath.close()
-                            drawPath(sailPath, color = Color(0xFF1565C0)) // Azul escuro
-
-                            // Dobra menor da vela (Azul mais claro para profundidade)
-                            val foldPath = Path()
-                            foldPath.moveTo(0f, -10f)
-                            foldPath.lineTo(0f, -40f)
-                            foldPath.lineTo(-20f, -10f)
-                            foldPath.close()
-                            drawPath(foldPath, color = Color(0xFF90CAF9))
-                        }
-
-                        // Onda da frente (Branco Puro / Azul Oceano)
-                        val pathFront = Path()
-                        pathFront.moveTo(startX, height + 4000f)
-                        pathFront.lineTo(startX, midLineY)
-
-                        x = startX
-                        while (x <= endX) {
-                            val sine = sin((x / width) * 2.5 * PI + phase.toDouble()).toFloat()
-                            val yPos = midLineY + (waveAmplitude.toPx() * sine)
-                            pathFront.lineTo(x, yPos)
-                            x += 10f
-                        }
-                        pathFront.lineTo(endX, midLineY)
-                        pathFront.lineTo(endX, height + 4000f)
-                        pathFront.close()
-
-                        drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
-                    }
-                }
+                                Waves(
+                    totalMilkHeight = totalMilkHeight,
+                    isExpanded = isExpanded,
+                    onExpandedChange = { isExpanded = it },
+                    rotation = rotation,
+                    phase = phase,
+                    waveAmplitude = waveAmplitude,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
 
             // Calculate sea level in Px here, after BoxWithConstraints has set screenHeightPx and totalMilkHeightPx
@@ -550,7 +447,6 @@ fun SailorScreen() {
             RainEffect(
                 modifier = Modifier.fillMaxSize().zIndex(0.6f),
                 screenWidthPx = screenWidthPx,
-                screenHeightPx = screenHeightPx,
                 seaLevelYPx = currentSeaLevelYPx
             )
         }
@@ -619,14 +515,8 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
             // Create a single cloud that spans the entire screen width with undulations.
             val size = screenWidth / density * 1.5f // Adjusted multiplier to ensure full coverage and overlap
             val speed = 0f // Clouds are static when raining
-            val cloudHeightInPixels = (20.0f / 24f) * size * density // Approximate height of the cloud in pixels
 
             // Ensure clouds are above the ship
-            val maxCloudTopYAllowed = actualShipHighestPointYPx - cloudHeightInPixels - cloudClearancePaddingPx
-
-            // For a single large cloud, we can fix its Y or make it slightly random within a smaller range.
-            // Let\'s make it fill more of the top sky by picking a y value lower than usual
-            val y = Random.nextFloat() * (maxCloudTopYAllowed * 0.7f).coerceAtLeast(0f)
             val alpha = Random.nextFloat() * 0.4f + 0.6f // Denser and more opaque
             val color = Color.Gray // Grayish clouds for rain
 //            clouds.add(Cloud(x = 0f, y = y, size = size, speed = speed, alpha = alpha, color = color))
@@ -639,7 +529,7 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
                     alpha = alpha,
                     color = color,
                     showRain
-                ));
+                ))
             }
         } else if (showClouds) {
             // When showClouds is true (and not raining), generate an initial set of normal clouds
@@ -790,7 +680,6 @@ fun InfiniteClouds(modifier: Modifier = Modifier, screenWidth: Float, showRain: 
 fun RainEffect(
     modifier: Modifier = Modifier,
     screenWidthPx: Float,
-    screenHeightPx: Float,
     seaLevelYPx: Float
 ) {
     val rainDrops = remember { mutableStateListOf<RainDrop>() }
@@ -964,8 +853,6 @@ fun StarrySky(
     seaLevelYPx: Float
 ) {
     val density = LocalDensity.current.density
-
-    // Estrelas são criadas UMA VEZ
     val stars = remember(screenWidthPx, screenHeightPx, seaLevelYPx) {
         if (screenWidthPx == 0f || screenHeightPx == 0f) return@remember emptyList()
 
