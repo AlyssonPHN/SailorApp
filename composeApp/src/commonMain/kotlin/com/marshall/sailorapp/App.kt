@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -15,7 +14,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -40,26 +38,25 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.graphics.RenderEffect // Added for BlurEffect
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity // Import LocalDensity
-import androidx.compose.ui.graphics.Shader
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import kotlinx.coroutines.delay
+import com.marshall.sailorapp.model.Cloud
+import com.marshall.sailorapp.model.RainDrop
+import com.marshall.sailorapp.model.SkyState
+import com.marshall.sailorapp.model.Star
+
+
 
 
 
@@ -71,44 +68,6 @@ fun App() {
     }
 }
 
-data class Cloud(
-    var x: Float,
-    var y: Float,
-    val size: Float,
-    val speed: Float,
-    val alpha: Float,
-    val color: Color, // Add color property
-    val isRainCloud: Boolean
-)
-
-// New data class for RainDrop
-data class RainDrop(
-    var x: Float,
-    var y: Float,
-    val length: Float,
-    val speed: Float,
-    val alpha: Float
-)
-
-// New data class for Star
-data class Star(
-    val x: Float,
-    val y: Float,
-    val radius: Float,
-    val phase: Float,
-    val speed: Float,
-    val amplitude: Float,
-    val baseAlpha: Float
-)
-
-
-enum class SkyState {
-    Day,
-    Sunset,
-    Night,
-    Sunrise
-}
-
 @Composable
 fun SailorScreen() {
     var showClouds by remember { mutableStateOf(false) } // New state for clouds
@@ -118,417 +77,383 @@ fun SailorScreen() {
 
     var skyState by remember { mutableStateOf(SkyState.Day) }
 
-
-//    val backgroundColor = if (showMoon) Color.Black else Color(0xFF00013E) // Change background based on moon
-
-    val backgroundColor by animateColorAsState(
-        targetValue = when (skyState) {
-            SkyState.Day -> Color(0xFF00013E)
-            SkyState.Sunset -> Color(0xFFFF8C42)
-            SkyState.Night -> Color.Black
-            SkyState.Sunrise -> Color(0xFFFFB347)
-        },
-        animationSpec = tween(2500)
-    )
+    Box(modifier = Modifier.fillMaxSize()) { // Wrap content in a Box
+        SailorBackground(skyState = skyState, onSkyStateChange = { skyState = it }) {
+            var isExpanded by remember { mutableStateOf(true) }
+            var hasAppeared by remember { mutableStateOf(false) }
 
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundColor) // Fundo Roxo Escuro ou Preto
-    ) {
-        var isExpanded by remember { mutableStateOf(true) }
-        var hasAppeared by remember { mutableStateOf(false) }
+            val localDensity = LocalDensity.current // Declare LocalDensity here
 
+            // Use mutableStateOf for screen dimensions so they can be updated from BoxWithConstraints
+            var screenWidthPx by remember { mutableStateOf(0f) }
+            var screenHeightPx by remember { mutableStateOf(0f) }
 
-        val localDensity = LocalDensity.current // Declare LocalDensity here
+            // Animação de entrada
+            LaunchedEffect(Unit) {
+                hasAppeared = true
+            }
 
-        // Use mutableStateOf for screen dimensions so they can be updated from BoxWithConstraints
-        var screenWidthPx by remember { mutableStateOf(0f) }
-        var screenHeightPx by remember { mutableStateOf(0f) }
+            // Define a porcentagem da altura: 0% -> 30% (entrada), depois alterna entre 30% e 10%
+            val targetPercentage = if (!hasAppeared) 0f else if (isExpanded) 0.3f else 0.1f
 
-        // Animação de entrada
-        LaunchedEffect(Unit) {
-            hasAppeared = true
-        }
-
-        // Define a porcentagem da altura: 0% -> 30% (entrada), depois alterna entre 30% e 10%
-        val targetPercentage = if (!hasAppeared) 0f else if (isExpanded) 0.3f else 0.1f
-
-        val heightPercentage by animateFloatAsState(
-            targetValue = targetPercentage,
-            animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing)
-        )
-
-        // Animação infinita para as ondas
-        val infiniteTransition = rememberInfiniteTransition()
-        val phase by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 2 * PI.toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(2000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
+            val heightPercentage by animateFloatAsState(
+                targetValue = targetPercentage,
+                animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing)
             )
-        )
 
-        // Rotação do dispositivo (com suavização)
-        val deviceRotation by rememberDeviceRotation()
-        val rotation by animateFloatAsState(
-            targetValue = -deviceRotation,
-            animationSpec = spring(stiffness = Spring.StiffnessVeryLow, dampingRatio = Spring.DampingRatioLowBouncy)
-        )
+            // Animação infinita para as ondas
+            val infiniteTransition = rememberInfiniteTransition()
+            val phase by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 2 * PI.toFloat(),
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                )
+            )
 
-        // Declaring totalMilkHeightPx here to make it accessible outside BoxWithConstraints
-        var totalMilkHeightPx by remember { mutableStateOf(0f) }
+            // Rotação do dispositivo (com suavização)
+            val deviceRotation by rememberDeviceRotation()
+            val rotation by animateFloatAsState(
+                targetValue = -deviceRotation,
+                animationSpec = spring(stiffness = Spring.StiffnessVeryLow, dampingRatio = Spring.DampingRatioLowBouncy)
+            )
 
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            val currentScreenHeightDp = maxHeight
-            val currentScreenWidthDp = maxWidth
+            // Declaring totalMilkHeightPx here to make it accessible outside BoxWithConstraints
+            var totalMilkHeightPx by remember { mutableStateOf(0f) }
 
-            // Update screen dimensions in pixels
-            LaunchedEffect(currentScreenWidthDp, currentScreenHeightDp) {
-                screenWidthPx = with(localDensity) { currentScreenWidthDp.toPx() }
-                screenHeightPx = with(localDensity) { currentScreenHeightDp.toPx() }
-            }
-
-            val rotationAbs = abs(rotation)
-            val heightOffset = if (rotationAbs > 60f) {
-                val progress = ((rotationAbs - 60f) / 30f).coerceIn(0f, 1f)
-                currentScreenHeightDp * 0.25f * progress
-            } else {
-                0.dp
-            }
-
-            // Altura da parte líquida cheia
-            val milkBodyHeight = (currentScreenHeightDp * heightPercentage) - heightOffset
-
-            // Altura extra para as ondas não serem cortadas
-            // Ajustamos a amplitude das ondas com base na rotação:
-            // quando chega perto de 90 graus (landscape), reduzimos a amplitude.
-            val rad = rotation.toDouble() * (PI / 180.0)
-            val amplitudeFactor = 0.3f + 0.7f * abs(cos(rad)).toFloat()
-            val waveAmplitude = 15.dp * amplitudeFactor
-
-            // Altura total do container do leite
-            val totalMilkHeight = if (milkBodyHeight > 0.dp) milkBodyHeight + waveAmplitude else 0.dp
-
-            // Update totalMilkHeightPx from here
-            LaunchedEffect(totalMilkHeight) {
-                totalMilkHeightPx = with(localDensity) { totalMilkHeight.toPx() }
-            }
-
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(totalMilkHeight)
-                    .align(Alignment.BottomCenter)
-                    .clickable { isExpanded = !isExpanded }
-                    .zIndex(0.5f) // Added zIndex here
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize()
             ) {
-                val width = size.width
-                val height = size.height
+                val currentScreenHeightDp = maxHeight
+                val currentScreenWidthDp = maxWidth
 
-                // Aplicamos a rotação do dispositivo a todo o desenho
-                withTransform({
-                    rotate(degrees = -rotation, pivot = Offset(width / 2, height / 2))
-                    scale(scaleX = 1.2f, scaleY = 1.2f, pivot = Offset(width / 2, height / 2))
-                }) {
+                // Update screen dimensions in pixels
+                LaunchedEffect(currentScreenWidthDp, currentScreenHeightDp) {
+                    screenWidthPx = with(localDensity) { currentScreenWidthDp.toPx() }
+                    screenHeightPx = with(localDensity) { currentScreenHeightDp.toPx() }
+                }
 
-                    // O nível médio da superfície do leite
-                    val midLineY = waveAmplitude.toPx()
+                val rotationAbs = abs(rotation)
+                val heightOffset = if (rotationAbs > 60f) {
+                    val progress = ((rotationAbs - 60f) / 30f).coerceIn(0f, 1f)
+                    currentScreenHeightDp * 0.25f * progress
+                } else {
+                    0.dp
+                }
 
-                    // Definindo limites de desenho expandidos para cobrir a tela ao rotacionar
-                    // Calculamos uma largura que cubra a diagonal com folga
-                    val drawRange = max(width, height) * 4f
-                    val startX = (width - drawRange) / 2
-                    val endX = startX + drawRange
+                // Altura da parte líquida cheia
+                val milkBodyHeight = (currentScreenHeightDp * heightPercentage) - heightOffset
 
-                    // Onda de trás (Sombra/Mais escura para dar profundidade)
-                    val pathBack = Path()
-                    pathBack.moveTo(startX, height + 4000f) // Começa bem embaixo
-                    pathBack.lineTo(startX, midLineY) // Sobe até o inicio da onda
+                // Altura extra para as ondas não serem cortadas
+                // Ajustamos a amplitude das ondas com base na rotação:
+                // quando chega perto de 90 graus (landscape), reduzimos a amplitude.
+                val rad = rotation.toDouble() * (PI / 180.0)
+                val amplitudeFactor = 0.3f + 0.7f * abs(cos(rad)).toFloat()
+                val waveAmplitude = 15.dp * amplitudeFactor
 
-                    // Loop estendido
-                    var x = startX
-                    while (x <= endX) {
-                        // Fase deslocada e frequência um pouco diferente
-                        val sine = sin((x / width) * 4 * PI + phase.toDouble() + 1.0).toFloat()
-                        val yPos = midLineY + (waveAmplitude.toPx() * 0.7f * sine)
-                        pathBack.lineTo(x, yPos)
-                        x += 10f
-                    }
-                    pathBack.lineTo(endX, midLineY)
-                    pathBack.lineTo(endX, height + 4000f)
-                    pathBack.close()
+                // Altura total do container do leite
+                val totalMilkHeight = if (milkBodyHeight > 0.dp) milkBodyHeight + waveAmplitude else 0.dp
 
-                    drawPath(pathBack, color = Color(0xFF4FC3F7)) // Azul claro
+                // Update totalMilkHeightPx from here
+                LaunchedEffect(totalMilkHeight) {
+                    totalMilkHeightPx = with(localDensity) { totalMilkHeight.toPx() }
+                }
 
-                    // --- Navio ---
-                    val shipX = width / 2
-                    // Usando a onda da frente para posicionar o navio
-                    val waveXFactor = (shipX / width) * 2.5 * PI + phase.toDouble()
-                    // Subtraindo um valor para elevar o navio acima da linha d\'água
-                    val shipY = midLineY + (waveAmplitude.toPx() * sin(waveXFactor)).toFloat() - 15.dp.toPx()
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(totalMilkHeight)
+                        .align(Alignment.BottomCenter)
+                        .clickable { isExpanded = !isExpanded }
+                        .zIndex(0.5f) // Added zIndex here
+                ) {
+                    val width = size.width
+                    val height = size.height
 
-                    // Calculando a inclinação (derivada aproximada) para o balanço
-                    val delta = 5f
-                    val waveNextXFactor = ((shipX + delta) / width) * 2.5 * PI + phase.toDouble()
-                    val wavePrevXFactor = ((shipX - delta) / width) * 2.5 * PI + phase.toDouble()
-
-                    val yNext = midLineY + (waveAmplitude.toPx() * sin(waveNextXFactor)).toFloat()
-                    val yPrev = midLineY + (waveAmplitude.toPx() * sin(wavePrevXFactor)).toFloat()
-
-                    val angle = atan2((yNext - yPrev).toDouble(), (2 * delta).toDouble()) * (180 / PI)
-
+                    // Aplicamos a rotação do dispositivo a todo o desenho
                     withTransform({
-                        translate(left = shipX, top = shipY)
-                        rotate(degrees = angle.toFloat(), pivot = Offset.Zero)
-                        scale(scaleX = 4.5f, scaleY = 4.5f, pivot = Offset.Zero)
+                        rotate(degrees = -rotation, pivot = Offset(width / 2, height / 2))
+                        scale(scaleX = 1.2f, scaleY = 1.2f, pivot = Offset(width / 2, height / 2))
                     }) {
-                        // Casco do navio de papel (Branco)
-                        val hullPath = Path()
-                        hullPath.moveTo(-40f, -10f) // Ponta esquerda
-                        hullPath.lineTo(40f, -10f)  // Ponta direita
-                        hullPath.lineTo(20f, 15f)   // Base direita
-                        hullPath.lineTo(-20f, 15f)  // Base esquerda
-                        hullPath.close()
-                        drawPath(hullPath, color = Color.White)
 
-                        // Vela Principal (Azul Escuro)
-                        val sailPath = Path()
-                        sailPath.moveTo(0f, -10f)
-                        sailPath.lineTo(0f, -55f) // Topo
-                        sailPath.lineTo(30f, -10f)
-                        sailPath.close()
-                        drawPath(sailPath, color = Color(0xFF1565C0)) // Azul escuro
+                        // O nível médio da superfície do leite
+                        val midLineY = waveAmplitude.toPx()
 
-                        // Dobra menor da vela (Azul mais claro para profundidade)
-                        val foldPath = Path()
-                        foldPath.moveTo(0f, -10f)
-                        foldPath.lineTo(0f, -40f)
-                        foldPath.lineTo(-20f, -10f)
-                        foldPath.close()
-                        drawPath(foldPath, color = Color(0xFF90CAF9))
-                    }
+                        // Definindo limites de desenho expandidos para cobrir a tela ao rotacionar
+                        // Calculamos uma largura que cubra a diagonal com folga
+                        val drawRange = max(width, height) * 4f
+                        val startX = (width - drawRange) / 2
+                        val endX = startX + drawRange
 
-                    // Onda da frente (Branco Puro / Azul Oceano)
-                    val pathFront = Path()
-                    pathFront.moveTo(startX, height + 4000f)
-                    pathFront.lineTo(startX, midLineY)
+                        // Onda de trás (Sombra/Mais escura para dar profundidade)
+                        val pathBack = Path()
+                        pathBack.moveTo(startX, height + 4000f) // Começa bem embaixo
+                        pathBack.lineTo(startX, midLineY) // Sobe até o inicio da onda
 
-                    x = startX
-                    while (x <= endX) {
-                        val sine = sin((x / width) * 2.5 * PI + phase.toDouble()).toFloat()
-                        val yPos = midLineY + (waveAmplitude.toPx() * sine)
-                        pathFront.lineTo(x, yPos)
-                        x += 10f
-                    }
-                    pathFront.lineTo(endX, midLineY)
-                    pathFront.lineTo(endX, height + 4000f)
-                    pathFront.close()
-
-                    drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
-                }
-            }
-        }
-
-        // Calculate sea level in Px here, after BoxWithConstraints has set screenHeightPx and totalMilkHeightPx
-        val currentSeaLevelYPx = screenHeightPx - totalMilkHeightPx
-
-        // Position Sun
-        val sunStartY = 80f
-        val sunEndY = currentSeaLevelYPx + 200f
-
-        // Position moon
-        val moonStartY = currentSeaLevelYPx + 200f
-        val moonEndY = 80f
-
-        val sunY by animateFloatAsState(
-            targetValue = when (skyState) {
-                SkyState.Day, SkyState.Sunrise -> sunStartY
-                SkyState.Night, SkyState.Sunset -> sunEndY
-            },
-            animationSpec = tween(2600, easing = FastOutSlowInEasing)
-        )
-
-        val moonY by animateFloatAsState(
-            targetValue = when (skyState) {
-                SkyState.Night -> moonEndY        // lua no céu
-                SkyState.Sunrise -> moonStartY    // 👈 lua DESCENDO
-                SkyState.Day, SkyState.Sunset -> moonStartY
-            },
-            animationSpec = tween(2600, easing = FastOutSlowInEasing)
-        )
-
-        LaunchedEffect(skyState) {
-            when (skyState) {
-                SkyState.Sunset -> {
-                    delay(2600)
-                    skyState = SkyState.Night
-                }
-                SkyState.Sunrise -> {
-                    delay(2600)
-                    skyState = SkyState.Day
-                }
-                else -> Unit
-            }
-        }
-
-        LaunchedEffect(skyState, moonY) {
-            if (skyState == SkyState.Sunrise && moonY >= moonStartY - 1f) {
-                skyState = SkyState.Day
-            }
-        }
-
-        // Renderization Sun
-        if (skyState != SkyState.Night && !showRain) {
-            InfiniteSun(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        clip = true
-                        shape = GenericShape { size, _ ->
-                            // Área visível: tudo ACIMA do nível do mar
-                            addRect(
-                                Rect(
-                                    left = 0f,
-                                    top = 0f,
-                                    right = size.width,
-                                    bottom = currentSeaLevelYPx
-                                )
-                            )
+                        // Loop estendido
+                        var x = startX
+                        while (x <= endX) {
+                            // Fase deslocada e frequência um pouco diferente
+                            val sine = sin((x / width) * 4 * PI + phase.toDouble() + 1.0).toFloat()
+                            val yPos = midLineY + (waveAmplitude.toPx() * 0.7f * sine)
+                            pathBack.lineTo(x, yPos)
+                            x += 10f
                         }
-                    },
-                offsetX = with(localDensity) { 16.dp.toPx() },
-                offsetY = sunY,
-                sunSize = with(localDensity) { 150.dp.toPx() },
-                color = Color(0xFFFFC107)
-            )
-        }
+                        pathBack.lineTo(endX, midLineY)
+                        pathBack.lineTo(endX, height + 4000f)
+                        pathBack.close()
 
+                        drawPath(pathBack, color = Color(0xFF4FC3F7)) // Azul claro
 
-        // Renderetion Moon
-        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
-            InfiniteMoon(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        clip = true
-                        shape = GenericShape { size, _ ->
-                            addRect(
-                                Rect(
-                                    left = 0f,
-                                    top = 0f,
-                                    right = size.width,
-                                    bottom = currentSeaLevelYPx
-                                )
-                            )
+                        // --- Navio ---
+                        val shipX = width / 2
+                        // Usando a onda da frente para posicionar o navio
+                        val waveXFactor = (shipX / width) * 2.5 * PI + phase.toDouble()
+                        // Subtraindo um valor para elevar o navio acima da linha d\'água
+                        val shipY = midLineY + (waveAmplitude.toPx() * sin(waveXFactor)).toFloat() - 15.dp.toPx()
+
+                        // Calculando a inclinação (derivada aproximada) para o balanço
+                        val delta = 5f
+                        val waveNextXFactor = ((shipX + delta) / width) * 2.5 * PI + phase.toDouble()
+                        val wavePrevXFactor = ((shipX - delta) / width) * 2.5 * PI + phase.toDouble()
+
+                        val yNext = midLineY + (waveAmplitude.toPx() * sin(waveNextXFactor)).toFloat()
+                        val yPrev = midLineY + (waveAmplitude.toPx() * sin(wavePrevXFactor)).toFloat()
+
+                        val angle = atan2((yNext - yPrev).toDouble(), (2 * delta).toDouble()) * (180 / PI)
+
+                        withTransform({
+                            translate(left = shipX, top = shipY)
+                            rotate(degrees = angle.toFloat(), pivot = Offset.Zero)
+                            scale(scaleX = 4.5f, scaleY = 4.5f, pivot = Offset.Zero)
+                        }) {
+                            // Casco do navio de papel (Branco)
+                            val hullPath = Path()
+                            hullPath.moveTo(-40f, -10f) // Ponta esquerda
+                            hullPath.lineTo(40f, -10f)  // Ponta direita
+                            hullPath.lineTo(20f, 15f)   // Base direita
+                            hullPath.lineTo(-20f, 15f)  // Base esquerda
+                            hullPath.close()
+                            drawPath(hullPath, color = Color.White)
+
+                            // Vela Principal (Azul Escuro)
+                            val sailPath = Path()
+                            sailPath.moveTo(0f, -10f)
+                            sailPath.lineTo(0f, -55f) // Topo
+                            sailPath.lineTo(30f, -10f)
+                            sailPath.close()
+                            drawPath(sailPath, color = Color(0xFF1565C0)) // Azul escuro
+
+                            // Dobra menor da vela (Azul mais claro para profundidade)
+                            val foldPath = Path()
+                            foldPath.moveTo(0f, -10f)
+                            foldPath.lineTo(0f, -40f)
+                            foldPath.lineTo(-20f, -10f)
+                            foldPath.close()
+                            drawPath(foldPath, color = Color(0xFF90CAF9))
                         }
+
+                        // Onda da frente (Branco Puro / Azul Oceano)
+                        val pathFront = Path()
+                        pathFront.moveTo(startX, height + 4000f)
+                        pathFront.lineTo(startX, midLineY)
+
+                        x = startX
+                        while (x <= endX) {
+                            val sine = sin((x / width) * 2.5 * PI + phase.toDouble()).toFloat()
+                            val yPos = midLineY + (waveAmplitude.toPx() * sine)
+                            pathFront.lineTo(x, yPos)
+                            x += 10f
+                        }
+                        pathFront.lineTo(endX, midLineY)
+                        pathFront.lineTo(endX, height + 4000f)
+                        pathFront.close()
+
+                        drawPath(pathFront, color = Color(0xFF039BE5)) // Azul oceano
                     }
-                    .zIndex(0.2f),
-                offsetX = with(localDensity) { 40.dp.toPx() },
-                offsetY = moonY, // 👈 mesma lógica do sunY
-                moonSize = with(localDensity) { 120.dp.toPx() },
-                color = Color(0xFFCFD8DC)
+                }
+            }
+
+            // Calculate sea level in Px here, after BoxWithConstraints has set screenHeightPx and totalMilkHeightPx
+            val currentSeaLevelYPx = screenHeightPx - totalMilkHeightPx
+
+            // Position Sun
+            val sunStartY = 80f
+            val sunEndY = currentSeaLevelYPx + 200f
+
+            // Position moon
+            val moonStartY = currentSeaLevelYPx + 200f
+            val moonEndY = 80f
+
+            val sunY by animateFloatAsState(
+                targetValue = when (skyState) {
+                    SkyState.Day, SkyState.Sunrise -> sunStartY
+                    SkyState.Night, SkyState.Sunset -> sunEndY
+                },
+                animationSpec = tween(2600, easing = FastOutSlowInEasing)
             )
-        }
 
-
-        // Renderention Stars
-        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
-            StarrySky(
-                modifier = Modifier.fillMaxSize(),
-                screenWidthPx = screenWidthPx,
-                screenHeightPx = screenHeightPx,
-                seaLevelYPx = currentSeaLevelYPx
+            val moonY by animateFloatAsState(
+                targetValue = when (skyState) {
+                    SkyState.Night -> moonEndY        // lua no céu
+                    SkyState.Sunrise -> moonStartY    // 👈 lua DESCENDO
+                    SkyState.Day, SkyState.Sunset -> moonStartY
+                },
+                animationSpec = tween(2600, easing = FastOutSlowInEasing)
             )
-        }
+
+
+
+
+            // Renderization Sun
+            if (skyState != SkyState.Night && !showRain) {
+                InfiniteSun(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            clip = true
+                            shape = GenericShape { size, _ ->
+                                // Área visível: tudo ACIMA do nível do mar
+                                addRect(
+                                    Rect(
+                                        left = 0f,
+                                        top = 0f,
+                                        right = size.width,
+                                        bottom = currentSeaLevelYPx
+                                    )
+                                )
+                            }
+                        },
+                    offsetX = with(localDensity) { 16.dp.toPx() },
+                    offsetY = sunY,
+                    sunSize = with(localDensity) { 150.dp.toPx() },
+                    color = Color(0xFFFFC107)
+                )
+            }
+
+
+            // Renderetion Moon
+            if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
+                InfiniteMoon(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            clip = true
+                            shape = GenericShape { size, _ ->
+                                addRect(
+                                    Rect(
+                                        left = 0f,
+                                        top = 0f,
+                                        right = size.width,
+                                        bottom = currentSeaLevelYPx
+                                    )
+                                )
+                            }
+                        }
+                        .zIndex(0.2f),
+                    offsetX = with(localDensity) { 40.dp.toPx() },
+                    offsetY = moonY, // 👈 mesma lógica do sunY
+                    moonSize = with(localDensity) { 120.dp.toPx() },
+                    color = Color(0xFFCFD8DC)
+                )
+            }
+
+
+            // Renderention Stars
+            if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
+                StarrySky(
+                    modifier = Modifier.fillMaxSize(),
+                    screenWidthPx = screenWidthPx,
+                    screenHeightPx = screenHeightPx,
+                    seaLevelYPx = currentSeaLevelYPx
+                )
+            }
 
 
 
 
 
-        // --- Novo Menu Interativo ---
-        var isMenuExpanded by remember { mutableStateOf(false) }
+            // --- Novo Menu Interativo ---
+            var isMenuExpanded by remember { mutableStateOf(false) }
 
-        val menuTransition = updateTransition(targetState = isMenuExpanded, label = "menuTransition")
+            val menuTransition = updateTransition(targetState = isMenuExpanded, label = "menuTransition")
 
-        val menuOffset by menuTransition.animateValue(
-            typeConverter = DpOffset.VectorConverter,
-            transitionSpec = { spring(stiffness = Spring.StiffnessMediumLow) }, label = "menuOffset"
-        ) { expanded ->
-            if (expanded) DpOffset(0.dp, 0.dp) else DpOffset(0.dp, (-50).dp) // Adjusted to start higher
-        }
+            val menuOffset by menuTransition.animateValue(
+                typeConverter = DpOffset.VectorConverter,
+                transitionSpec = { spring(stiffness = Spring.StiffnessMediumLow) }, label = "menuOffset"
+            ) { expanded ->
+                if (expanded) DpOffset(0.dp, 0.dp) else DpOffset(0.dp, (-50).dp) // Adjusted to start higher
+            }
 
-        val menuAlpha by menuTransition.animateFloat(
-            transitionSpec = { tween(durationMillis = 300) }, label = "menuAlpha"
-        ) { expanded ->
-            if (expanded) 1f else 0f
-        }
+            val menuAlpha by menuTransition.animateFloat(
+                transitionSpec = { tween(durationMillis = 300) }, label = "menuAlpha"
+            ) { expanded ->
+                if (expanded) 1f else 0f
+            }
 
-        val iconRotation by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(4000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
+            val iconRotation by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(4000, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                )
             )
-        )
 
-        // Orb Radius
-        val orbRadius = 18.dp
-        val iconSize = 24.dp
-        val centerCircleSize = 48.dp
+            // Orb Radius
+            val orbRadius = 18.dp
+            val iconSize = 24.dp
+            val centerCircleSize = 48.dp
 
-        // Removed LocalDensity.current from here, it\'s now at the top of SailorScreen
+            // Removed LocalDensity.current from here, it\'s now at the top of SailorScreen
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 80.dp, end = 48.dp) // Adjusted padding here
-                .zIndex(1f) // Ensure the menu is above other elements
-        ) {
-            // Central clickable circle
             Box(
                 modifier = Modifier
-                    .size(centerCircleSize)
-                    .clip(CircleShape)
-                    .background(Color.Transparent) // Changed background to Transparent
-                    .clickable { isMenuExpanded = !isMenuExpanded }
-                    .align(Alignment.Center)
-            )
-
-            // Orbiting Icons
-            val icons = listOf(Icons.Default.Cloud, Icons.Default.WbSunny, Icons.Default.Grain, Icons.Default.Brightness2)
-            icons.forEachIndexed { index, icon ->
-                val angle = (iconRotation + index * (360f / icons.size)) * PI.toFloat() / 180f
-                val offsetX = with(localDensity) { (orbRadius.toPx() * cos(angle)).toDp() }
-                val offsetY = with(localDensity) { (orbRadius.toPx() * sin(angle)).toDp() }
-
-                if (!isMenuExpanded) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(iconSize)
-                            .offset(x = offsetX, y = offsetY)
-                            .align(Alignment.Center)
-                    )
-                }
-            }
-
-            // Expanded Glassmorphic Card
-            if (isMenuExpanded) {
-                Card(
+                    .align(Alignment.TopEnd) // Adjusted padding here
+                    .padding(top = 80.dp, end = 48.dp)
+                    .zIndex(1f) // Ensure the menu is above other elements
+            ) {
+                // Central clickable circle
+                Box(
                     modifier = Modifier
-                        .wrapContentSize(Alignment.CenterEnd) // Changed fillMaxWidth to wrapContentSize
-                        // .blur(16.dp) // <<< REMOVED THIS LINE
-                        .offset { // Apply animated offset here
-                            with(localDensity) {
-                                IntOffset(x = menuOffset.x.toPx().roundToInt(), y = menuOffset.y.toPx().roundToInt())
+                        .size(centerCircleSize)
+                        .clip(CircleShape)
+                        .background(Color.Transparent) // Changed background to Transparent
+                        .clickable { isMenuExpanded = !isMenuExpanded }
+                        .align(Alignment.Center)
+                )
+
+                // Orbiting Icons
+                val icons = listOf(Icons.Default.Cloud, Icons.Default.WbSunny, Icons.Default.Grain, Icons.Default.Brightness2)
+                icons.forEachIndexed { index, icon ->
+                    val angle = (iconRotation + index * (360f / icons.size)) * PI.toFloat() / 180f
+                    val offsetX = with(localDensity) { (orbRadius.toPx() * cos(angle)).toDp() }
+                    val offsetY = with(localDensity) { (orbRadius.toPx() * sin(angle)).toDp() }
+
+                    if (!isMenuExpanded) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier
+                                .size(iconSize)
+                                .offset(x = offsetX, y = offsetY)
+                                .align(Alignment.Center)
+                        )
+                    }
+                }
+
+                // Expanded Glassmorphic Card
+                if (isMenuExpanded) {
+                    Card(
+                        modifier = Modifier
+                            .wrapContentSize(Alignment.CenterEnd) // Changed fillMaxWidth to wrapContentSize
+                            // .blur(16.dp) // <<< REMOVED THIS LINE
+                            .offset { // Apply animated offset here
+                                with(localDensity) {
+                                    IntOffset(x = menuOffset.x.toPx().roundToInt(), y = menuOffset.y.toPx().roundToInt())
                             }
                         }
                         // efeito glassmorphic multiplataforma
@@ -663,6 +588,7 @@ fun SailorScreen() {
 //                color = Color(0xFFCFD8DC) // Light grey for the moon
 //            )
 //        }
+        }
     }
 }
 
@@ -1016,7 +942,6 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
         // At moonPhase = 0f, the dark circle is centered on the moon, covering it entirely (new moon).
         // As moonPhase progresses to 1f, the dark circle moves to the right,
         // eventually moving completely off-screen to the right, revealing the full moon.
-        val coveringCircleCenterX = moonCenterX + moonRadius * 2.5f * moonPhase.value
 
         if (moonPhase.value < 0.98f) {
             val coveringCircleCenterX =
