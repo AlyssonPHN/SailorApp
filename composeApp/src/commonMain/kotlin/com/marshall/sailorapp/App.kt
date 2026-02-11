@@ -55,6 +55,7 @@ import com.marshall.sailorapp.model.Cloud
 import com.marshall.sailorapp.model.RainDrop
 import com.marshall.sailorapp.model.SkyState
 import com.marshall.sailorapp.model.Star
+import com.marshall.sailorapp.ui.components.StarrySky
 import com.marshall.sailorapp.ui.components.Waves
 
 
@@ -840,58 +841,6 @@ fun InfiniteMoon(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, 
                 color = Color.Black,
                 radius = moonRadius,
                 center = Offset(coveringCircleCenterX, moonCenterY)
-            )
-        }
-    }
-}
-
-@Composable
-fun StarrySky(
-    modifier: Modifier = Modifier,
-    screenWidthPx: Float,
-    screenHeightPx: Float,
-    seaLevelYPx: Float
-) {
-    val density = LocalDensity.current.density
-    val stars = remember(screenWidthPx, screenHeightPx, seaLevelYPx) {
-        if (screenWidthPx == 0f || screenHeightPx == 0f) return@remember emptyList()
-
-        val maxY = (seaLevelYPx - 140.dp.value * density).coerceAtLeast(0f)
-
-        buildList {
-            repeat(100) {
-                add(
-                    Star(
-                        x = Random.nextFloat() * screenWidthPx,
-                        y = Random.nextFloat() * maxY,
-                        radius = Random.nextFloat() * 1.5f + 1f,
-                        phase = Random.nextFloat() * (2f * PI.toFloat()),
-                        speed = Random.nextFloat() * 0.6f + 0.2f, // star slow
-                        amplitude = Random.nextFloat() * 0.15f + 0.05f,
-                        baseAlpha = Random.nextFloat() * 0.3f + 0.55f
-                    )
-                )
-            }
-        }
-    }
-
-    Canvas(modifier = modifier.fillMaxSize()) {
-        val time = System.nanoTime() / 1_000_000_000f
-
-
-        stars.forEach { star ->
-            val twinkle =
-                kotlin.math.sin(time * star.speed + star.phase).toFloat() * star.amplitude
-
-
-            val alpha = (star.baseAlpha + twinkle)
-                .coerceIn(0.4f, 0.9f)
-
-            drawCircle(
-                color = Color.White,
-                radius = star.radius,
-                center = Offset(star.x, star.y),
-                alpha = alpha
             )
         }
     }
