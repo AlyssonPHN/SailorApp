@@ -12,7 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
@@ -51,10 +51,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity // Import LocalDensity
 import androidx.compose.ui.geometry.Size
-import com.marshall.sailorapp.model.Cloud
+
 import com.marshall.sailorapp.model.RainDrop
 import com.marshall.sailorapp.model.SkyState
-import com.marshall.sailorapp.model.Star
+
+import com.marshall.sailorapp.ui.components.InfiniteSun
 import com.marshall.sailorapp.ui.components.StarrySky
 import com.marshall.sailorapp.ui.components.Waves
 import com.marshall.sailorapp.ui.components.InfiniteClouds
@@ -546,48 +547,4 @@ fun RainEffect(
     }
 }
 
-@Composable
-fun InfiniteSun(modifier: Modifier = Modifier, offsetX: Float, offsetY: Float, sunSize: Float, color: Color) {
-    val infiniteTransition = rememberInfiniteTransition()
-    val sunRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(16000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        )
-    )
 
-    Canvas(modifier = modifier) {
-        // Calculate the center of the sun based on the overall sunSize
-        val sunCenterX = offsetX + sunSize / 2f
-        val sunCenterY = offsetY + sunSize / 2f
-
-        // Draw the central circle
-        val circleRadius = sunSize * 0.25f
-        drawCircle(color = color, radius = circleRadius, center = Offset(sunCenterX, sunCenterY))
-
-        // Draw 8 rays around the central circle
-        val rayWidth = sunSize * 0.08f
-        val rayHeight = sunSize * 0.3f
-        val rayCornerRadius = sunSize * 0.04f
-        val rayOffsetFromCenter = circleRadius + (rayHeight / 2f) - (sunSize * 0.0f) // Adjusted for more detachment
-
-        for (i in 0 until 8) {
-            val angleDegrees = i * 45f
-            withTransform({
-                translate(left = sunCenterX, top = sunCenterY)
-                rotate(degrees = sunRotation + angleDegrees, pivot = Offset.Zero)
-                translate(left = -rayWidth / 2f, top = -rayOffsetFromCenter)
-            }) {
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset.Zero,
-                    size = Size(rayWidth, rayHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(rayCornerRadius, rayCornerRadius),
-                    alpha = 1f
-                )
-            }
-        }
-    }
-}
