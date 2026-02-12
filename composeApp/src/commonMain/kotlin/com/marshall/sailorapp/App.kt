@@ -1,67 +1,76 @@
 package com.marshall.sailorapp
 
-
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateValue
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.ui.tooling.preview.Preview
-import kotlin.math.PI
-
-import kotlin.math.cos
-
-import kotlin.math.sin
-import kotlin.math.abs
-import kotlin.math.roundToInt // Import added for roundToInt
-import kotlin.random.Random // Import for Random
-
-// Imports for the new feature
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brightness2
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.Grain // Represents rain
-import androidx.compose.material.icons.filled.Brightness2 // Represents sunset
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.zIndex
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.platform.LocalDensity // Import LocalDensity
-import androidx.compose.ui.geometry.Size
-
-import com.marshall.sailorapp.model.RainDrop
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.marshall.sailorapp.model.SkyState
-
-import com.marshall.sailorapp.ui.components.InfiniteSun
-import com.marshall.sailorapp.ui.components.StarrySky
-import com.marshall.sailorapp.ui.components.Waves
 import com.marshall.sailorapp.ui.components.InfiniteClouds
 import com.marshall.sailorapp.ui.components.InfiniteMoon
-
-
+import com.marshall.sailorapp.ui.components.InfiniteSun
+import com.marshall.sailorapp.ui.components.RainEffect
+import com.marshall.sailorapp.ui.components.StarrySky
+import com.marshall.sailorapp.ui.components.Waves
+import org.jetbrains.compose.ui.tooling.preview.Preview
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 
 @Composable
@@ -121,7 +130,10 @@ fun SailorScreen() {
             val deviceRotation by rememberDeviceRotation()
             val rotation by animateFloatAsState(
                 targetValue = -deviceRotation,
-                animationSpec = spring(stiffness = Spring.StiffnessVeryLow, dampingRatio = Spring.DampingRatioLowBouncy)
+                animationSpec = spring(
+                    stiffness = Spring.StiffnessVeryLow,
+                    dampingRatio = Spring.DampingRatioLowBouncy
+                )
             )
 
             // Declaring totalMilkHeightPx here to make it accessible outside BoxWithConstraints
@@ -158,14 +170,15 @@ fun SailorScreen() {
                 val waveAmplitude = 15.dp * amplitudeFactor
 
                 // Altura total do container do leite
-                val totalMilkHeight = if (milkBodyHeight > 0.dp) milkBodyHeight + waveAmplitude else 0.dp
+                val totalMilkHeight =
+                    if (milkBodyHeight > 0.dp) milkBodyHeight + waveAmplitude else 0.dp
 
                 // Update totalMilkHeightPx from here
                 LaunchedEffect(totalMilkHeight) {
                     totalMilkHeightPx = with(localDensity) { totalMilkHeight.toPx() }
                 }
 
-                                Waves(
+                Waves(
                     totalMilkHeight = totalMilkHeight,
                     isExpanded = isExpanded,
                     onExpandedChange = { isExpanded = it },
@@ -203,8 +216,6 @@ fun SailorScreen() {
                 },
                 animationSpec = tween(2600, easing = FastOutSlowInEasing)
             )
-
-
 
 
             // Renderization Sun
@@ -272,19 +283,21 @@ fun SailorScreen() {
             }
 
 
-
-
-
             // --- Novo Menu Interativo ---
             var isMenuExpanded by remember { mutableStateOf(false) }
 
-            val menuTransition = updateTransition(targetState = isMenuExpanded, label = "menuTransition")
+            val menuTransition =
+                updateTransition(targetState = isMenuExpanded, label = "menuTransition")
 
             val menuOffset by menuTransition.animateValue(
                 typeConverter = DpOffset.VectorConverter,
-                transitionSpec = { spring(stiffness = Spring.StiffnessMediumLow) }, label = "menuOffset"
+                transitionSpec = { spring(stiffness = Spring.StiffnessMediumLow) },
+                label = "menuOffset"
             ) { expanded ->
-                if (expanded) DpOffset(0.dp, 0.dp) else DpOffset(0.dp, (-50).dp) // Adjusted to start higher
+                if (expanded) DpOffset(0.dp, 0.dp) else DpOffset(
+                    0.dp,
+                    (-50).dp
+                ) // Adjusted to start higher
             }
 
             val menuAlpha by menuTransition.animateFloat(
@@ -326,7 +339,12 @@ fun SailorScreen() {
                 )
 
                 // Orbiting Icons
-                val icons = listOf(Icons.Default.Cloud, Icons.Default.WbSunny, Icons.Default.Grain, Icons.Default.Brightness2)
+                val icons = listOf(
+                    Icons.Default.Cloud,
+                    Icons.Default.WbSunny,
+                    Icons.Default.Grain,
+                    Icons.Default.Brightness2
+                )
                 icons.forEachIndexed { index, icon ->
                     val angle = (iconRotation + index * (360f / icons.size)) * PI.toFloat() / 180f
                     val offsetX = with(localDensity) { (orbRadius.toPx() * cos(angle)).toDp() }
@@ -353,198 +371,132 @@ fun SailorScreen() {
                             // .blur(16.dp) // <<< REMOVED THIS LINE
                             .offset { // Apply animated offset here
                                 with(localDensity) {
-                                    IntOffset(x = menuOffset.x.toPx().roundToInt(), y = menuOffset.y.toPx().roundToInt())
+                                    IntOffset(
+                                        x = menuOffset.x.toPx().roundToInt(),
+                                        y = menuOffset.y.toPx().roundToInt()
+                                    )
+                                }
                             }
-                        }
-                        // efeito glassmorphic multiplataforma
-                        .graphicsLayer {
-                            alpha = menuAlpha // Use animated alpha here
-                            shape = RoundedCornerShape(16.dp)
-                            clip = true
-                        },
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                            // efeito glassmorphic multiplataforma
+                            .graphicsLayer {
+                                alpha = menuAlpha // Use animated alpha here
+                                shape = RoundedCornerShape(16.dp)
+                                clip = true
+                            },
+                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
 
-                    ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .wrapContentWidth(Alignment.CenterHorizontally), // Aligned column content to center
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        icons.forEach { icon ->
-                            IconButton(
-                                onClick = {
-                                    isMenuExpanded = false
-                                    when (icon) {
-                                        Icons.Default.Cloud -> {
-                                            showClouds = !showClouds
-                                        }
-
-                                        Icons.Default.WbSunny -> {
-                                            skyState = when (skyState) {
-                                                SkyState.Night -> {
-                                                    SkyState.Sunrise   // lua começa a descer
-                                                }
-
-                                                SkyState.Sunset -> {
-                                                    SkyState.Day
-                                                }
-
-                                                else -> {
-                                                    SkyState.Day
-                                                }
+                        ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .wrapContentWidth(Alignment.CenterHorizontally), // Aligned column content to center
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            icons.forEach { icon ->
+                                IconButton(
+                                    onClick = {
+                                        isMenuExpanded = false
+                                        when (icon) {
+                                            Icons.Default.Cloud -> {
+                                                showClouds = !showClouds
                                             }
 
-                                            showClouds = false
-                                        }
+                                            Icons.Default.WbSunny -> {
+                                                skyState = when (skyState) {
+                                                    SkyState.Night -> {
+                                                        SkyState.Sunrise   // lua começa a descer
+                                                    }
+
+                                                    SkyState.Sunset -> {
+                                                        SkyState.Day
+                                                    }
+
+                                                    else -> {
+                                                        SkyState.Day
+                                                    }
+                                                }
+
+                                                showClouds = false
+                                            }
 
 
-                                        Icons.Default.Grain -> {
-                                            showRain = !showRain
-                                        }
+                                            Icons.Default.Grain -> {
+                                                showRain = !showRain
+                                            }
 
-                                        Icons.Default.Brightness2 -> {
-                                            skyState = when (skyState) {
-                                                SkyState.Day -> SkyState.Sunset
-                                                SkyState.Night -> SkyState.Sunrise
-                                                else -> skyState
+                                            Icons.Default.Brightness2 -> {
+                                                skyState = when (skyState) {
+                                                    SkyState.Day -> SkyState.Sunset
+                                                    SkyState.Night -> SkyState.Sunrise
+                                                    else -> skyState
+                                                }
                                             }
                                         }
-                                    }
 
-                                },
-                                modifier = Modifier // Removed fillMaxWidth()
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
+                                    },
+                                    modifier = Modifier // Removed fillMaxWidth()
                                 ) {
-                                    Icon(imageVector = icon, contentDescription = null, tint = Color.White)
-                                    Spacer(Modifier.width(8.dp))
-                                    // You can add Text here to describe the button
-                                    // Text(text = icon.name.substringAfterLast("."), color = Color.White)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        // You can add Text here to describe the button
+                                        // Text(text = icon.name.substringAfterLast("."), color = Color.White)
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // Infinite Clouds
-        if (showClouds || showRain) { // Show clouds if either showClouds or showRain is true
-            InfiniteClouds(
-                modifier = Modifier
-                    .fillMaxSize().zIndex(0.3f)
-                    .align(Alignment.TopStart),
-                screenWidth = screenWidthPx,
-                showRain = showRain, // Pass new state
-                showClouds = showClouds, // Pass showClouds state
-                seaLevelYPx = currentSeaLevelYPx // Pass sea level
-            )
-        }
+            // Infinite Clouds
+            if (showClouds || showRain) { // Show clouds if either showClouds or showRain is true
+                InfiniteClouds(
+                    modifier = Modifier
+                        .fillMaxSize().zIndex(0.3f)
+                        .align(Alignment.TopStart),
+                    screenWidth = screenWidthPx,
+                    showRain = showRain, // Pass new state
+                    showClouds = showClouds, // Pass showClouds state
+                    seaLevelYPx = currentSeaLevelYPx // Pass sea level
+                )
+            }
 
-        // Rain Effect
-        if (showRain) {
-            RainEffect(
-                modifier = Modifier.fillMaxSize().zIndex(0.6f),
-                screenWidthPx = screenWidthPx,
-                seaLevelYPx = currentSeaLevelYPx
-            )
-        }
+            // Rain Effect
+            if (showRain) {
+                RainEffect(
+                    modifier = Modifier.fillMaxSize().zIndex(0.6f),
+                    screenWidthPx = screenWidthPx,
+                    seaLevelYPx = currentSeaLevelYPx
+                )
+            }
 
-        // Starry Sky
-        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
+            // Starry Sky
+            if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
 
-            StarrySky(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(0.2f), // Behind the moon, but above background
-                screenWidthPx = screenWidthPx,
-                screenHeightPx = screenHeightPx,
-                seaLevelYPx = currentSeaLevelYPx // Pass sea level to StarrySky
-            )
-        }
-
-//        // Infinite Moon
-//        if (skyState == SkyState.Night || skyState == SkyState.Sunrise) {
-//
-//            val moonSizeDp = 120.dp
-//            val moonSizePx = with(localDensity) { moonSizeDp.toPx() }
-//            val paddingDp = 40.dp
-////            val moonOffsetX = with(localDensity) { screenWidthPx - moonSizePx - paddingDp.toPx() } // Alinhado à direita com padding
-//            val moonOffsetX = with(localDensity) { paddingDp.toPx() } // Alinhado à direita com padding
-//            val moonOffsetY = with(localDensity) { paddingDp.toPx() } // Alinhado ao topo com padding
-//            InfiniteMoon(
-//                modifier = Modifier
-//                    .fillMaxSize()
-//                    .align(Alignment.TopStart)
-//                    .zIndex(0.2f), // ZIndex slightly higher than stars
-//                offsetX = moonOffsetX,
-//                offsetY = moonOffsetY,
-//                moonSize = moonSizePx,
-//                color = Color(0xFFCFD8DC) // Light grey for the moon
-//            )
-//        }
-        }
-    }
-}
-
-@Composable
-fun RainEffect(
-    modifier: Modifier = Modifier,
-    screenWidthPx: Float,
-    seaLevelYPx: Float
-) {
-    val rainDrops = remember { mutableStateListOf<RainDrop>() }
-    val density = LocalDensity.current.density
-
-    LaunchedEffect(Unit) {
-        var lastFrameTime = 0L
-        while (true) {
-            withFrameNanos { frameTime ->
-                val deltaTimeNs = if (lastFrameTime > 0) frameTime - lastFrameTime else 0L
-                lastFrameTime = frameTime
-                val deltaTimeSeconds = deltaTimeNs / 1_000_000_000f
-
-                // Atualiza pingos
-                for (i in rainDrops.indices.reversed()) {
-                    val drop = rainDrops[i]
-                    drop.y += drop.speed * deltaTimeSeconds * density
-                    if (drop.y > seaLevelYPx) {
-                        rainDrops.removeAt(i)
-                    }
-                }
-
-                // Gera novos pingos
-                if (Random.nextFloat() < 0.8f) {
-                    rainDrops.add(
-                        RainDrop(
-                            x = Random.nextFloat() * screenWidthPx,
-                            y = Random.nextFloat() * (seaLevelYPx * 0.4f),
-                            length = Random.nextFloat() * 12f + 8f,
-                            speed = Random.nextFloat() * 400f + 300f,
-                            alpha = Random.nextFloat() * 0.6f + 0.4f
-                        )
-                    )
-                }
+                StarrySky(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(0.2f), // Behind the moon, but above background
+                    screenWidthPx = screenWidthPx,
+                    screenHeightPx = screenHeightPx,
+                    seaLevelYPx = currentSeaLevelYPx // Pass sea level to StarrySky
+                )
             }
         }
     }
-
-    // 🔥 ISSO É O QUE ESTAVA FALTANDO
-    Canvas(modifier = modifier.fillMaxSize()) {
-        rainDrops.forEach { drop ->
-            drawLine(
-                color = Color.White.copy(alpha = drop.alpha),
-                start = Offset(drop.x, drop.y),
-                end = Offset(drop.x, drop.y + drop.length),
-                strokeWidth = 2f,
-                cap = StrokeCap.Round
-            )
-        }
-    }
 }
+
+
+
+
 
 
