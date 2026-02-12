@@ -35,6 +35,7 @@ import com.marshall.sailorapp.ui.components.InfiniteSun
 import com.marshall.sailorapp.ui.components.InteractiveMenu
 import com.marshall.sailorapp.ui.components.RainEffect
 import com.marshall.sailorapp.ui.components.StarrySky
+import com.marshall.sailorapp.ui.components.SunAndMoon
 import com.marshall.sailorapp.ui.components.Waves
 import kotlin.math.PI
 import kotlin.math.abs
@@ -128,128 +129,63 @@ fun SailorScreen() {
                     waveAmplitude = waveAmplitude,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
-            }
 
-            val currentSeaLevelYPx = screenHeightPx - totalMilkHeightPx
+                val currentSeaLevelYPx = screenHeightPx - totalMilkHeightPx
 
-            val sunStartY = 80f
-            val sunEndY = currentSeaLevelYPx + 200f
-
-            val moonStartY = currentSeaLevelYPx + 200f
-            val moonEndY = 80f
-
-            val sunY by animateFloatAsState(
-                targetValue = when (viewModel.skyState) {
-                    SkyState.Day, SkyState.Sunrise -> sunStartY
-                    SkyState.Night, SkyState.Sunset -> sunEndY
-                },
-                animationSpec = tween(2600, easing = FastOutSlowInEasing)
-            )
-
-            val moonY by animateFloatAsState(
-                targetValue = when (viewModel.skyState) {
-                    SkyState.Night -> moonEndY
-                    SkyState.Sunrise -> moonStartY
-                    SkyState.Day, SkyState.Sunset -> moonStartY
-                },
-                animationSpec = tween(2600, easing = FastOutSlowInEasing)
-            )
-
-            if (viewModel.skyState != SkyState.Night && !viewModel.showRain) {
-                InfiniteSun(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            clip = true
-                            shape = GenericShape { size, _ ->
-                                addRect(
-                                    Rect(
-                                        left = 0f,
-                                        top = 0f,
-                                        right = size.width,
-                                        bottom = currentSeaLevelYPx
-                                    )
-                                )
-                            }
-                        },
-                    offsetX = with(localDensity) { 16.dp.toPx() },
-                    offsetY = sunY,
-                    sunSize = with(localDensity) { 150.dp.toPx() },
-                    color = Color(0xFFFFC107)
-                )
-            }
-
-            if (viewModel.skyState == SkyState.Night || viewModel.skyState == SkyState.Sunrise) {
-                InfiniteMoon(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            clip = true
-                            shape = GenericShape { size, _ ->
-                                addRect(
-                                    Rect(
-                                        left = 0f,
-                                        top = 0f,
-                                        right = size.width,
-                                        bottom = currentSeaLevelYPx
-                                    )
-                                )
-                            }
-                        }
-                        .zIndex(0.2f),
-                    offsetX = with(localDensity) { 40.dp.toPx() },
-                    offsetY = moonY,
-                    moonSize = with(localDensity) { 120.dp.toPx() },
-                    color = Color(0xFFCFD8DC)
-                )
-            }
-
-            if (viewModel.skyState == SkyState.Night || viewModel.skyState == SkyState.Sunrise) {
-                StarrySky(
-                    modifier = Modifier.fillMaxSize(),
-                    screenWidthPx = screenWidthPx,
-                    screenHeightPx = screenHeightPx,
-                    seaLevelYPx = currentSeaLevelYPx
-                )
-            }
-
-            InteractiveMenu(
-                skyState = viewModel.skyState,
-                onSkyStateChange = { viewModel.setSkyState(it) },
-                onToggleClouds = { viewModel.toggleClouds() },
-                onToggleRain = { viewModel.toggleRain() },
-                modifier = Modifier.align(Alignment.TopEnd)
-            )
-
-            if (viewModel.showClouds || viewModel.showRain) {
-                InfiniteClouds(
-                    modifier = Modifier
-                        .fillMaxSize().zIndex(0.3f)
-                        .align(Alignment.TopStart),
-                    screenWidth = screenWidthPx,
+                SunAndMoon(
+                    skyState = viewModel.skyState,
                     showRain = viewModel.showRain,
-                    showClouds = viewModel.showClouds,
-                    seaLevelYPx = currentSeaLevelYPx
+                    currentSeaLevelYPx = currentSeaLevelYPx,
+                    screenWidthPx = screenWidthPx
                 )
-            }
 
-            if (viewModel.showRain) {
-                RainEffect(
-                    modifier = Modifier.fillMaxSize().zIndex(0.6f),
-                    screenWidthPx = screenWidthPx,
-                    seaLevelYPx = currentSeaLevelYPx
-                )
-            }
+                if (viewModel.skyState == SkyState.Night || viewModel.skyState == SkyState.Sunrise) {
+                    StarrySky(
+                        modifier = Modifier.fillMaxSize(),
+                        screenWidthPx = screenWidthPx,
+                        screenHeightPx = screenHeightPx,
+                        seaLevelYPx = currentSeaLevelYPx
+                    )
+                }
 
-            if (viewModel.skyState == SkyState.Night || viewModel.skyState == SkyState.Sunrise) {
-                StarrySky(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .zIndex(0.2f),
-                    screenWidthPx = screenWidthPx,
-                    screenHeightPx = screenHeightPx,
-                    seaLevelYPx = currentSeaLevelYPx
+                InteractiveMenu(
+                    skyState = viewModel.skyState,
+                    onSkyStateChange = { viewModel.setSkyState(it) },
+                    onToggleClouds = { viewModel.toggleClouds() },
+                    onToggleRain = { viewModel.toggleRain() },
+                    modifier = Modifier.align(Alignment.TopEnd)
                 )
+
+                if (viewModel.showClouds || viewModel.showRain) {
+                    InfiniteClouds(
+                        modifier = Modifier
+                            .fillMaxSize().zIndex(0.3f)
+                            .align(Alignment.TopStart),
+                        screenWidth = screenWidthPx,
+                        showRain = viewModel.showRain,
+                        showClouds = viewModel.showClouds,
+                        seaLevelYPx = currentSeaLevelYPx
+                    )
+                }
+
+                if (viewModel.showRain) {
+                    RainEffect(
+                        modifier = Modifier.fillMaxSize().zIndex(0.6f),
+                        screenWidthPx = screenWidthPx,
+                        seaLevelYPx = currentSeaLevelYPx
+                    )
+                }
+
+                if (viewModel.skyState == SkyState.Night || viewModel.skyState == SkyState.Sunrise) {
+                    StarrySky(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zIndex(0.2f),
+                        screenWidthPx = screenWidthPx,
+                        screenHeightPx = screenHeightPx,
+                        seaLevelYPx = currentSeaLevelYPx
+                    )
+                }
             }
         }
     }
