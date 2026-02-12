@@ -21,6 +21,24 @@ class SailorViewModel {
     private var _hasAppeared by mutableStateOf(false)
     val hasAppeared: Boolean get() = _hasAppeared
 
+    private var _screenWidthPx by mutableStateOf(0f)
+    val screenWidthPx: Float get() = _screenWidthPx
+
+    private var _screenHeightPx by mutableStateOf(0f)
+    val screenHeightPx: Float get() = _screenHeightPx
+
+    private var _totalMilkHeightPx by mutableStateOf(0f)
+    val totalMilkHeightPx: Float get() = _totalMilkHeightPx
+
+    fun setScreenSize(width: Float, height: Float) {
+        _screenWidthPx = width
+        _screenHeightPx = height
+    }
+
+    fun setTotalMilkHeight(height: Float) {
+        _totalMilkHeightPx = height
+    }
+
     fun toggleClouds() {
         _showClouds = !_showClouds
     }

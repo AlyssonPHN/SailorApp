@@ -5,10 +5,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -17,6 +14,7 @@ import com.marshall.sailorapp.model.SkyState
 import com.marshall.sailorapp.ui.components.InfiniteClouds
 import com.marshall.sailorapp.ui.components.InteractiveMenu
 import com.marshall.sailorapp.ui.components.RainEffect
+import com.marshall.sailorapp.ui.components.SailorBackground
 import com.marshall.sailorapp.ui.components.StarrySky
 import com.marshall.sailorapp.ui.components.SunAndMoon
 import com.marshall.sailorapp.ui.components.Waves
@@ -34,10 +32,6 @@ fun SailorScreen() {
         ) {
             val localDensity = LocalDensity.current
 
-            var screenWidthPx by remember { mutableStateOf(0f) }
-            var screenHeightPx by remember { mutableStateOf(0f) }
-            var totalMilkHeightPx by remember { mutableStateOf(0f) }
-
             LaunchedEffect(Unit) {
                 viewModel.setHasAppeared(true)
             }
@@ -52,15 +46,17 @@ fun SailorScreen() {
                 )
 
                 LaunchedEffect(sailorState.totalMilkHeight) {
-                    totalMilkHeightPx = with(localDensity) { sailorState.totalMilkHeight.toPx() }
+                    viewModel.setTotalMilkHeight(with(localDensity) { sailorState.totalMilkHeight.toPx() })
                 }
 
                 val currentScreenHeightDp = maxHeight
                 val currentScreenWidthDp = maxWidth
 
                 LaunchedEffect(currentScreenWidthDp, currentScreenHeightDp) {
-                    screenWidthPx = with(localDensity) { currentScreenWidthDp.toPx() }
-                    screenHeightPx = with(localDensity) { currentScreenHeightDp.toPx() }
+                    viewModel.setScreenSize(
+                        width = with(localDensity) { currentScreenWidthDp.toPx() },
+                        height = with(localDensity) { currentScreenHeightDp.toPx() }
+                    )
                 }
 
                 Waves(
@@ -73,20 +69,20 @@ fun SailorScreen() {
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
 
-                val currentSeaLevelYPx = screenHeightPx - totalMilkHeightPx
+                val currentSeaLevelYPx = viewModel.screenHeightPx - viewModel.totalMilkHeightPx
 
                 SunAndMoon(
                     skyState = viewModel.skyState,
                     showRain = viewModel.showRain,
                     currentSeaLevelYPx = currentSeaLevelYPx,
-                    screenWidthPx = screenWidthPx
+                    screenWidthPx = viewModel.screenWidthPx
                 )
 
                 if (viewModel.skyState == SkyState.Night || viewModel.skyState == SkyState.Sunrise) {
                     StarrySky(
                         modifier = Modifier.fillMaxSize(),
-                        screenWidthPx = screenWidthPx,
-                        screenHeightPx = screenHeightPx,
+                        screenWidthPx = viewModel.screenWidthPx,
+                        screenHeightPx = viewModel.screenHeightPx,
                         seaLevelYPx = currentSeaLevelYPx
                     )
                 }
@@ -104,7 +100,7 @@ fun SailorScreen() {
                         modifier = Modifier
                             .fillMaxSize().zIndex(0.3f)
                             .align(Alignment.TopStart),
-                        screenWidth = screenWidthPx,
+                        screenWidth = viewModel.screenWidthPx,
                         showRain = viewModel.showRain,
                         showClouds = viewModel.showClouds,
                         seaLevelYPx = currentSeaLevelYPx
@@ -114,7 +110,7 @@ fun SailorScreen() {
                 if (viewModel.showRain) {
                     RainEffect(
                         modifier = Modifier.fillMaxSize().zIndex(0.6f),
-                        screenWidthPx = screenWidthPx,
+                        screenWidthPx = viewModel.screenWidthPx,
                         seaLevelYPx = currentSeaLevelYPx
                     )
                 }
@@ -124,8 +120,8 @@ fun SailorScreen() {
                         modifier = Modifier
                             .fillMaxSize()
                             .zIndex(0.2f),
-                        screenWidthPx = screenWidthPx,
-                        screenHeightPx = screenHeightPx,
+                        screenWidthPx = viewModel.screenWidthPx,
+                        screenHeightPx = viewModel.screenHeightPx,
                         seaLevelYPx = currentSeaLevelYPx
                     )
                 }

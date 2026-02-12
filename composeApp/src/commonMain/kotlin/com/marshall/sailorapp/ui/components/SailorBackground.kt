@@ -1,7 +1,6 @@
-package com.marshall.sailorapp
+package com.marshall.sailorapp.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
