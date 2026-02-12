@@ -1,4 +1,4 @@
-package com.marshall.sailorapp
+package com.marshall.sailorapp.ui.sailorscreen
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
